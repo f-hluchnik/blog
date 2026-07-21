@@ -1,6 +1,6 @@
 ---
 title: Marathon Training, Week 12
-date: 2026-06-01
+date: 2026-07-20
 tags: [running, life]
 summary: recovery week
 ---
