@@ -1,5 +1,5 @@
 ---
-title: [test] How I Bake Sourdough Bread
+title: "[test] How I Bake Sourdough Bread:"
 date: 2026-07-15
 tags: [baking, life]
 summary: My weekend routine for a reliable loaf, from feeding the starter to the final bake.
