@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site.title }}{% endblock %}</title>
+  <meta name="description" content="{{ site.description }}">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site-header">
+      <a class="site-title" href="/">{{ site.title }}</a>
+      <p class="site-tagline">{{ site.description }}</p>
+      <nav class="site-nav">
+        <a href="/">Posts</a>
+        <a href="/tags/">Tags</a>
+        <a href="/about/">About</a>
+      </nav>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <p>&copy; {{ current_year }} {{ site.title }}</p>
+    </footer>
+  </div>
+</body>
+</html>
