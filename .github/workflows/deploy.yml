@@ -26,7 +26,7 @@ jobs:
 
       - run: pip install -r requirements.txt
       - run: python build.py
-
+      - run: echo "f.hluchnikovi.cz" > dist/CNAME
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
