@@ -1,19 +1,21 @@
 ---
-title: Toto je můj testovací post
+title: Testing post
 date: 2026-07-21
-summary: Zkouším psát svůj vlastní blog.
+summary: I'm trying to start my own blog.
 ---
 
-Je léto 2026 a já jsem se rozhodl, že si konečně začnu psát blog. Chtěl bych zaznamenat všechno, čím žiju.
+It's summer 2026. It's been some time since I came across the thought of having my own blog where I could write about my life. Inspired by <a href='orderp.dev'>ordep.dev<a> blog, I decided to start my own. I wanted it dead simple, so I went with Github pages I discovered just recently. Now I can edit my website just by adding a .md file, which can be done even from mobile.
 
-## věci, které sem chci dávat
+## stuff I want to post
 
-- recepty
-- zkušenosti s pečením
-- svůj trénikový plán
-- migrovat stránky zpěvníku
-- odkazy na své projektíky
+- sideprojects
+- analogue photography
+- sourdough baking experience
+- running and training plans
+- music I like or write
+- books I read
+- recipes
 
-## závěr
+## final note
 
-Možná to nevyjde, ale aspoň jsem to zkusil.
+Maybe I won't make it, but at least I tried.
