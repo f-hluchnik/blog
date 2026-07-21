@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ site.lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,7 +13,7 @@
       if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
       } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.setAttribute('data-theme', dark);
+        document.documentElement.setAttribute('data-theme', 'dark');
       }
     })();
   </script>
@@ -23,13 +23,13 @@
   <div class="wrap">
     <header class="site-header">
       <div class="site-header-content">
-        <a class="site-title" href="/">{{ site.title }}</a>
+        <a class="site-title" href="https://f.hluchnikovi.cz/">{{ site.title }}</a>
         <p class="site-tagline">{{ site.description }}</p>
         <nav class="site-nav">
-          <a href="https://f.hluchnikovi.cz/">Posts</a>
-          <a href="https://f.hluchnikovi.cz/tags/">Tags</a>
-          <a href="https://f.hluchnikovi.cz/about/">About</a>
-          <a href="https://zpevnik.hluchnikovi.cz/">Songbook</a>
+          <a href="https://f.hluchnikovi.cz/">{{ site.nav.posts }}</a>
+          <a href="https://f.hluchnikovi.cz/tags/">{{ site.nav.tags }}</a>
+          <a href="https://f.hluchnikovi.cz/about/">{{ site.nav.about }}</a>
+          <a href="https://zpevnik.hluchnikovi.cz/">{{ site.nav.songbook }}</a>
         </nav>
       </div>
 

@@ -37,6 +37,8 @@ SITE = {
     "title": "A Notebook of Ordinary Things",
     "description": "Bread, running, books, and other notes from life.",
     "url": "https://f.hluchnikovi.cz",
+    "nav": {"posts": "Posts", "tags": "Tags", "about": "About", "songbook": "Songbook"},
+    "lang": "en"
 }
 
 env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
