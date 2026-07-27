@@ -1,6 +1,5 @@
 ---
 title: Projekty
-nav_order: 40
 ---
 
 mé další projekty:

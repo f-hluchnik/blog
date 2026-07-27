@@ -1,9 +1,11 @@
 ---
 title: O blogu
-nav_order: 30
 ---
 
-I write short notes here about the things I'm doing — baking, running,
-books I'm reading, and whatever else seems worth writing down.
+Komorebi je japonské slovo, které popisuje třpytivou hru světla a stínů vytvářenou listy, které se pohupují ve větru. Existuje jen jednou, právě v tom okamžiku.
 
-No comments, no newsletter, no tracking. Just notes.
+Život je tvořený malými okamžiky, které často přehlížíme. Tento blog má být místem pro zapisování malých věcí, kterým chci věnovat více pozornosti. 
+
+#### technické pozadí
+
+Blog je záměrně napsán jako jednoduchý statický web. Je hostovaný na Github Pages. Tvoří ho jen pár html šablon, články napsané v markdownu a build script, který to dává dohromady. Zdrojový kód, z většiny napsaný pomocí umělé inteligence (hlavně Claude, trochu Gemini) je dostupný na [GitHubu](https://github.com/f-hluchnik/blog).
