@@ -1,17 +1,19 @@
+{# A single post. #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} — {{ site.title }}{% endblock %}
+{% block description %}{{ post.summary or site.description }}{% endblock %}
 
 {% block content %}
 <article class="post">
-  <p class="post-date">{{ post.date.strftime('%Y.%m.%d') }}</p>
+  <p class="post-date"><time datetime="{{ post.date.isoformat() }}">{{ post.date | format_date }}</time></p>
   <h1 class="post-title">{{ post.title }}</h1>
   {% if post.tags %}
-  <p class="post-tags">{% for tag in post.tags %}<a href="/tags/{{ tag }}/">{{ tag }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% include "_tags.html" %}
   {% endif %}
   <div class="post-content">
     {{ post.content | safe }}
   </div>
-  <p class="back-link"><a href="/">&larr; All posts</a></p>
+  <p class="back-link"><a href="/">&larr; Všechny příspěvky</a></p>
 </article>
 {% endblock %}

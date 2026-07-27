@@ -1,0 +1,18 @@
+{# An index of tags: every tag at least one post carries, with a count. #}
+{% extends "base.html" %}
+
+{% block title %}Štítky — {{ site.title }}{% endblock %}
+
+{% block content %}
+<h1 class="archive-title">Štítky</h1>
+<ul class="tag-list">
+  {% for tag in tags %}
+  <li>
+    <a href="{{ tag.url }}">{{ tag.name }}</a>
+    <span class="tag-count">({{ tag.posts | length }})</span>
+  </li>
+  {% else %}
+  <li>Zatím žádné štítky.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

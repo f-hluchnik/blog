@@ -1,0 +1,33 @@
+{# An index of posts. Used twice: the home page (heading and back_link are
+   None) and each tag archive. build.py always passes both. #}
+{% extends "base.html" %}
+
+{% block title %}{% if heading %}{{ heading }} — {{ site.title }}{% else %}{{ site.title }}{% endif %}{% endblock %}
+
+{% block content %}
+{# The home page still needs an h1; it just does not need to show one. #}
+<h1 class="archive-title{% if not heading %} visually-hidden{% endif %}">
+  {{ heading or site.title }}
+</h1>
+
+<ul class="post-list">
+  {% for post in posts %}
+  <li class="post-item">
+    <span class="post-date"><time datetime="{{ post.date.isoformat() }}">{{ post.date | format_date }}</time></span>
+    <a class="post-title" href="{{ post.url }}">{{ post.title }}</a>
+    {% if post.summary %}
+    <p class="post-summary">{{ post.summary }}</p>
+    {% endif %}
+    {% if post.tags %}
+    {% include "_tags.html" %}
+    {% endif %}
+  </li>
+  {% else %}
+  <li class="post-item">Zatím tu nic není.</li>
+  {% endfor %}
+</ul>
+
+{% if back_link %}
+<p class="back-link"><a href="{{ back_link.url }}">&larr; {{ back_link.title }}</a></p>
+{% endif %}
+{% endblock %}

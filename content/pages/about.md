@@ -1,5 +1,6 @@
 ---
-title: About
+title: O blogu
+nav_order: 30
 ---
 
 I write short notes here about the things I'm doing — baking, running,

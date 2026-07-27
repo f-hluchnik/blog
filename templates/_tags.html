@@ -1,0 +1,6 @@
+{# Tag links for one post. Expects `post` in scope. #}
+<p class="post-tags">
+  {%- for tag in post.tags -%}
+  <a href="/tags/{{ tag | slugify }}/">{{ tag }}</a>{% if not loop.last %} · {% endif %}
+  {%- endfor -%}
+</p>

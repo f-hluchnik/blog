@@ -1,10 +1,12 @@
+{# A single authored page: content/pages/<slug>.md.
+   Same markup as the songbook's page.html, on purpose. #}
 {% extends "base.html" %}
 
 {% block title %}{{ page.title }} — {{ site.title }}{% endblock %}
 
 {% block content %}
-<article class="post">
-  <h1 class="post-title">{{ page.title }}</h1>
+<article>
+  <h1 class="page-title">{{ page.title }}</h1>
   <div class="post-content">
     {{ page.content | safe }}
   </div>

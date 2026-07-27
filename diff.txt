@@ -1,0 +1,1634 @@
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index 2d26e8f..d8abb77 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -1,18 +1,22 @@
+-name: Deploy blog
++# Builds on every push and pull request; publishes only from main.
++# A branch or a pull request therefore tells you the site still builds before
++# you merge, without touching what is live.
++name: Build & deploy
+ 
+ on:
+   push:
+-    branches: [main]
++  pull_request:
+   workflow_dispatch:
+ 
+ permissions:
+   contents: read
+-  pages: write
+-  id-token: write
+ 
+ concurrency:
+-  group: pages
+-  cancel-in-progress: true
++  # Deployments must not cancel each other: killing actions/deploy-pages
++  # mid-flight leaves the Pages environment stuck. Only builds are cheap
++  # enough to cancel, and they are scoped per ref.
++  group: pages-${{ github.ref }}
++  cancel-in-progress: false
+ 
+ jobs:
+   build:
+@@ -23,17 +27,29 @@ jobs:
+       - uses: actions/setup-python@v5
+         with:
+           python-version: "3.12"
++          cache: pip
++          cache-dependency-path: requirements.txt
+ 
+       - run: pip install -r requirements.txt
++
++      # build.py also writes dist/CNAME, derived from SITE["url"], so the
++      # custom domain is configured in exactly one place.
+       - run: python build.py
+-      - run: echo "f.hluchnikovi.cz" > dist/CNAME
++
+       - uses: actions/upload-pages-artifact@v3
+         with:
+           path: dist
+ 
+   deploy:
+     needs: build
++    # Only main goes live. A manual dispatch on a branch builds but does not
++    # publish, which `github.event_name != 'pull_request'` would have allowed.
++    if: github.ref == 'refs/heads/main'
+     runs-on: ubuntu-latest
++    permissions:
++      contents: read
++      pages: write
++      id-token: write
+     environment:
+       name: github-pages
+       url: ${{ steps.deployment.outputs.page_url }}
+diff --git a/.gitignore b/.gitignore
+index 7034540..988b6ce 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,5 +1,5 @@
+ dist/
+ __pycache__/
+ *.pyc
++.venv/
+ .DS_Store
+-.venv
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index b774da6..90d8d8e 100644
+--- a/README.md
++++ b/README.md
+@@ -1,47 +1,85 @@
+-# blog
++# blog — Komorebi
+ 
+-A minimal static blog. No framework, no database, no server: a Python
+-script (`build.py`, ~150 lines) reads Markdown posts and writes plain HTML
+-into `dist/`.
++A minimal static blog at [f.hluchnikovi.cz](https://f.hluchnikovi.cz). No
++framework, no database, no server: `build.py` reads Markdown and writes plain
++HTML into `dist/`.
+ 
+-## How it works
++Sibling repo: [zpevnik-web](https://zpevnik.hluchnikovi.cz) — a separate,
++standalone site with its own look, but the same layout, the same `build.py`
++structure, and the same section order in its stylesheet. Read one and you can
++read the other.
+ 
+-- `content/posts/*.md` — one file per post. Each starts with a small YAML
+-  front-matter block, then the post body in Markdown.
+-- `content/pages/*.md` — standalone pages (About, etc.), same format minus
+-  `date`/`tags`.
+-- `templates/*.html` — Jinja2 templates (the HTML shell around your content).
+-- `static/` — CSS and images, copied into `dist/static/` as-is.
+-- `build.py` — reads everything above and writes `dist/`. That directory is
+-  the entire website; it's gitignored and rebuilt from scratch every time.
++## Layout
++
++```
++content/posts/*.md   one file per post   (dated, tagged)
++content/pages/*.md   one file per page   (About, Projects, ...)
++templates/*.html     one file per shape  (see below)
++static/              CSS, JS, icons, images — copied to dist/static/ as-is
++build.py             reads all of the above, writes dist/
++dist/                the entire website; gitignored, rebuilt every run
++```
++
++## The mental model
++
++Three kinds of thing, and the templates follow directly from them:
++
++| | |
++|---|---|
++| **Content** you author | `content/posts/`, `content/pages/` |
++| **Indexes** the build derives | home, `/tags/`, one archive per tag |
++| **Templates**, one per shape | single item: `post.html`, `page.html`<br>list of items: `post-list.html`, `tag-list.html` |
++
++`post-list.html` is used twice — for the home page and for every tag archive,
++which are the same shape with a different heading. Partials start with an
++underscore (`_tags.html`, `_theme-toggle.html`) and are `include`d, not
++extended.
++
++`/tags/` has no Markdown file behind it because nothing on it is authored:
++it is computed from the `tags:` in every post's front matter. That is the
++line between a page and an index.
+ 
+ ## Writing a post
+ 
+-Create a new file in `content/posts/`, named however you like (the date in
+-the filename is just for your own sorting — the front matter is what
+-actually controls publish order):
++Create a file in `content/posts/`. The filename is only for your own sorting —
++the front matter is what counts.
+ 
+ ```markdown
+ ---
+ title: Some Title
+ date: 2026-07-21
+-tags: [books, life]
++tags: [knihy, život]
+ summary: One sentence shown in the post list.
+ ---
+ 
+-Your post, in Markdown. **Bold**, *italic*, [links](https://example.com),
+-lists, headings (`##`, `###`), code blocks, and blockquotes all work.
++Your post in Markdown. **Bold**, *italic*, [links](https://example.com),
++lists, headings (`##`, `###`), code blocks, blockquotes and footnotes work.
++```
++
++`title` and `date` are required; the build fails loudly without them. The URL
++slug comes from the title, or from an explicit `slug:` if you want to change
++a title without breaking a link. Tags can carry diacritics — the URL gets an
++ASCII slug (`Čerstvý chléb` → `/tags/cerstvy-chleb/`) while the display name
++stays as written.
++
++## Adding a page
++
++Create a file in `content/pages/`. `about.md` becomes `/about/`.
++
++```markdown
++---
++title: O blogu
++---
+ ```
+ 
+-A post can carry as many tags as you like — a post tagged `[baking, life]`
+-shows up under both the "baking" and "life" tag pages. `/tags/` lists every
+-tag with a count.
++The nav is four hardcoded links in `templates/base.html` — add yours there too.
++(Deriving the nav from front matter was tried and removed: sixteen lines of
++machinery to save one line of editing.)
+ 
+ ## Adding pictures
+ 
+-Drop image files anywhere under `static/images/` (e.g.
+-`static/images/posts/sourdough-loaf.jpg`), then reference them from a post
+-with a normal Markdown image, using the path starting at `/static/...`:
++Drop files under `static/images/`, then reference them with a path starting
++at `/static/`:
+ 
+ ```markdown
+ ![A fresh loaf cooling on a rack](/static/images/posts/sourdough-loaf.jpg)
+@@ -50,33 +88,56 @@ with a normal Markdown image, using the path starting at `/static/...`:
+ ## Previewing locally
+ 
+ ```bash
++python -m venv .venv && source .venv/bin/activate
+ pip install -r requirements.txt
+ python build.py --serve
+ ```
+ 
+-Then open http://localhost:8000. Re-run the command after any edit (there's
+-no auto-reload — one less moving part to maintain).
++Open <http://localhost:8000>. Re-run after any edit — there is no auto-reload,
++which is one less moving part to maintain.
+ 
+-## Deploying to GitHub Pages
++## Editing the design
+ 
+-1. Push this repo to GitHub.
+-2. In the repo's **Settings → Pages**, set **Source** to **GitHub Actions**.
+-3. Push to `main`. `.github/workflows/deploy.yml` builds the site and
+-   publishes `dist/` automatically. Check the **Actions** tab for the run
+-   and the live URL.
+-4. Optional custom domain: add it under **Settings → Pages → Custom domain**
+-   (GitHub will create a `CNAME` file and handle HTTPS for you), then point
+-   your domain's DNS at GitHub Pages per
+-   [GitHub's instructions](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site).
++Everything visual is in `static/style.css`. Colours are declared once as
++custom properties at the top, each with its light and dark value side by side
++via `light-dark()`; nothing below that block hardcodes a colour. The
++light/dark toggle is `static/theme.js`, byte-identical to the songbook's copy.
++
++Footer alignment follows the header: left here, centred in the songbook.
++
++Czech strings live in the templates that show them, not in a config dict. The
++site is only ever going to be in Czech.
++
++## What the odd files are for
++
++- **`static/theme.js`** — the light/dark *toggle*, and only the toggle. Dark
++  mode itself needs no JavaScript: `color-scheme: light dark` plus the
++  `light-dark()` tokens already follow the reader's system setting. This file
++  exists so someone on a light OS can read the site dark anyway. It is loaded
++  render-blocking from `<head>` on purpose — it has to set `data-theme` before
++  first paint, or a dark-mode reader sees a white flash. Deleting it and
++  `templates/_theme-toggle.html` would leave dark mode fully working.
++- **`static/site.webmanifest`** — only used when someone adds the site to a
++  phone home screen on Android; it supplies the name, icon and colours there.
++  iOS uses the `apple-touch-icon` link instead. Invisible to normal visitors.
++- **`templates/404.html`** — GitHub Pages serves `dist/404.html` for any path
++  it cannot match. It has no Markdown file behind it for the same reason
++  `/tags/` doesn't: there is nothing to author. Without it, a mistyped URL
++  gets GitHub's generic English error page instead of this site.
++
++## Deploying
++
++`.github/workflows/deploy.yml` builds on every push and every pull request,
++but publishes to GitHub Pages only from `main`. A branch or a pull request
++therefore tells you the site still builds, without touching what is live.
++
++The custom domain is derived from `SITE["url"]` — `build.py` writes
++`dist/CNAME` from it, so the domain is configured in exactly one place. In the
++repo's **Settings → Pages**, set **Source** to **GitHub Actions**, then point
++your DNS at GitHub Pages per
++[their instructions](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site).
+ 
+ ## Posting from your phone
+ 
+-Add or edit a `.md` file under `content/posts/` using the GitHub mobile app
+-(or any Git client), commit to `main`, and the Action above rebuilds and
+-redeploys the site automatically — no laptop required.
+-
+-## Editing the design
+-
+-Everything visual lives in `static/style.css` — colors and fonts are set
+-once as CSS custom properties at the top of the file. No build step, no
+-CSS framework.
++Add or edit a `.md` file under `content/posts/` in the GitHub mobile app,
++commit to `main`, and the workflow rebuilds and redeploys. No laptop required.
+diff --git a/build.py b/build.py
+index 66d2886..6dc9e84 100644
+--- a/build.py
++++ b/build.py
+@@ -1,29 +1,47 @@
+ #!/usr/bin/env python3
+-"""
+-Static site generator for the blog.
++"""Static site generator for the blog.
++
++Three kinds of thing:
++
++  * content   -- Markdown you write, in `content/`: posts (dated, tagged) and
++                 pages (About, Projects, ...).
++  * indexes   -- lists derived from that content: the home page, the tag
++                 overview, one archive per tag. Nothing on them is authored.
++  * templates -- Jinja2 HTML in `templates/`, one per *shape*: a single item
++                 (`post.html`, `page.html`) or a list of items
++                 (`post-list.html`, `tag-list.html`).
+ 
+-How it works, in one paragraph: every post is a Markdown file with a small
+-YAML front-matter header (title, date, tags, summary). This script reads
+-every post, renders it through a Jinja2 template, and writes plain HTML
+-files into dist/. There is no server, no database, no build magic beyond
+-what's written here -- run `python build.py` and read every line if you
+-want to know exactly what your site does.
++`build()` reads the content and writes plain HTML into `dist/`. That directory
++is the entire website; it is gitignored and rebuilt from scratch every run.
++
++zpevnik-web is a separate repo with its own look, but its build.py is a subset
++of this one -- same names, same order. Read one and you can read the other.
+ 
+ Usage:
+-    python build.py          # build the site into dist/
+-    python build.py --serve  # build, then serve dist/ at http://localhost:8000
++    python build.py            # build into dist/
++    python build.py --serve    # build, then serve dist/ on localhost:8000
+ """
+ 
++from __future__ import annotations
++
+ import re
+ import shutil
+ import sys
++import unicodedata
++from collections import Counter
+ from datetime import date, datetime
++from functools import partial
+ from http.server import HTTPServer, SimpleHTTPRequestHandler
+ from pathlib import Path
++from urllib.parse import urlparse
+ 
+ import markdown
+ import yaml
+-from jinja2 import Environment, FileSystemLoader
++from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
++
++# --------------------------------------------------------------------------
++# Configuration
++# --------------------------------------------------------------------------
+ 
+ ROOT = Path(__file__).parent
+ POSTS_DIR = ROOT / "content" / "posts"
+@@ -32,140 +50,223 @@ TEMPLATES_DIR = ROOT / "templates"
+ STATIC_DIR = ROOT / "static"
+ OUTPUT_DIR = ROOT / "dist"
+ 
+-# Edit this to describe your own site.
++SERVE_ADDRESS = ("localhost", 8000)
++
++# `extra` is a bundle: md_in_html, tables, fenced_code, attr_list, def_list,
++# abbr and footnotes. `footnotes` is named again so MARKDOWN_CONFIG can reach
++# it -- config only applies to an extension listed explicitly.
++MARKDOWN_EXTENSIONS = ["extra", "footnotes", "sane_lists", "smarty"]
++
++# The two extensions that emit text of their own, which defaults to English.
++MARKDOWN_CONFIG = {
++    "footnotes": {"BACKLINK_TITLE": "Zpět na odkaz na poznámku {}"},
++    "smarty": {
++        "substitutions": {
++            "left-double-quote": "&bdquo;",  # Czech quotes are „like this“
++            "right-double-quote": "&ldquo;",
++            "left-single-quote": "&sbquo;",
++            "right-single-quote": "&lsquo;",
++        }
++    },
++}
++
+ SITE = {
+-    "title": "A Notebook of Ordinary Things",
+-    "description": "Bread, running, books, and other notes from life.",
++    "lang": "cs",
++    "title": "Komorebi",
++    "description": "Sluneční paprsky prosvítající skrze listí stromů.",
+     "url": "https://f.hluchnikovi.cz",
+-    "nav": {"posts": "Posts", "tags": "Tags", "about": "About", "songbook": "Songbook"},
+-    "lang": "en"
+ }
+ 
+-env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
++# The <time datetime="..."> attribute stays ISO regardless of this.
++DATE_FORMAT = "%Y.%m.%d"
++
++env = Environment(
++    loader=FileSystemLoader(TEMPLATES_DIR),
++    autoescape=select_autoescape(["html"]),
++    # Fail the build on a missing or misspelled variable rather than quietly
++    # rendering an empty string.
++    undefined=StrictUndefined,
++    trim_blocks=True,
++    lstrip_blocks=True,
++)
+ 
+ 
+-def slugify(title: str) -> str:
+-    slug = title.lower()
+-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+-    return slug.strip("-")
++# --------------------------------------------------------------------------
++# Parsing
++# --------------------------------------------------------------------------
++
++
++def slugify(text: str) -> str:
++    """'Čerstvý chléb' -> 'cerstvy-chleb'. URL-safe ASCII, nothing clever."""
++    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
++    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
++
++
++def format_date(value: date) -> str:
++    return value.strftime(DATE_FORMAT)
++
++
++# Posts link to their own tags, where only the display name is in scope, so
++# templates need the same slug rule the tag URLs were built from.
++env.filters["slugify"] = slugify
++env.filters["format_date"] = format_date
+ 
+ 
+ def split_front_matter(raw: str) -> tuple[dict, str]:
+-    """Split '---\\nyaml\\n---\\nbody' into (metadata dict, body string)."""
+-    if not raw.startswith("---"):
++    """Split '---\\nyaml\\n---\\nbody' into (metadata, body). A file that only
++    opens with a thematic break is returned untouched."""
++    if not raw.startswith("---\n") or raw.count("---", 1) == 0:
+         return {}, raw
+-    _, fm_raw, body_raw = raw.split("---", 2)
+-    meta = yaml.safe_load(fm_raw) or {}
+-    return meta, body_raw.strip()
++    _, front_matter, body = raw.split("---", 2)
++    return yaml.safe_load(front_matter) or {}, body.strip()
+ 
+ 
+-def parse_post(path: Path) -> dict:
+-    raw = path.read_text(encoding="utf-8")
+-    meta, body = split_front_matter(raw)
+-    if "title" not in meta or "date" not in meta:
+-        raise ValueError(f"{path} is missing 'title' or 'date' in its front matter")
++def render_markdown(body: str) -> str:
++    # A fresh converter per document: a reused Markdown instance carries state
++    # between conversions (footnote numbering, most visibly).
++    return markdown.markdown(
++        body, extensions=MARKDOWN_EXTENSIONS, extension_configs=MARKDOWN_CONFIG
++    )
+ 
+-    html = markdown.markdown(body, extensions=["extra", "sane_lists", "smarty"])
+ 
++def parse_post(path: Path) -> dict:
++    """One file in content/posts/ -> a post dict."""
++    meta, body = split_front_matter(path.read_text(encoding="utf-8"))
++    missing = [key for key in ("title", "date") if key not in meta]
++    if missing:
++        raise ValueError(f"{path}: front matter is missing {', '.join(missing)}")
++
++    # YAML turns an unquoted 2026-07-27 into a date already; a quoted one
++    # arrives as a string.
+     post_date = meta["date"]
+     if isinstance(post_date, str):
+         post_date = datetime.strptime(post_date, "%Y-%m-%d").date()
+-    elif isinstance(post_date, datetime):
+-        post_date = post_date.date()
+-    elif not isinstance(post_date, date):
++    if not isinstance(post_date, date):
+         raise ValueError(f"{path}: 'date' must look like YYYY-MM-DD")
+ 
+-    tags = meta.get("tags", [])
+-    if isinstance(tags, str):
+-        tags = [t.strip() for t in tags.split(",") if t.strip()]
+-
+     slug = meta.get("slug") or slugify(meta["title"])
+-
+     return {
+         "title": meta["title"],
+         "date": post_date,
+-        "tags": tags,
++        "tags": meta.get("tags") or [],
+         "summary": meta.get("summary", ""),
+         "slug": slug,
+-        "content": html,
+         "url": f"/posts/{slug}/",
++        "content": render_markdown(body),
+     }
+ 
+ 
+ def parse_page(path: Path) -> dict:
+-    raw = path.read_text(encoding="utf-8")
+-    meta, body = split_front_matter(raw)
+-    html = markdown.markdown(body, extensions=["extra", "sane_lists", "smarty"])
++    """One file in content/pages/ -> a page dict."""
++    meta, body = split_front_matter(path.read_text(encoding="utf-8"))
++    slug = meta.get("slug") or path.stem
+     return {
+-        "title": meta.get("title", path.stem.replace("-", " ").title()),
+-        "slug": path.stem,
+-        "content": html,
+-        "url": f"/{path.stem}/",
++        "title": meta.get("title", slug),
++        "slug": slug,
++        "url": f"/{slug}/",
++        "content": render_markdown(body),
+     }
+ 
+ 
+ def load_posts() -> list[dict]:
+-    posts = [parse_post(p) for p in sorted(POSTS_DIR.glob("*.md"))]
+-    posts.sort(key=lambda p: p["date"], reverse=True)
++    """All posts, newest first. Ties break on slug so builds are reproducible."""
++    posts = [parse_post(path) for path in sorted(POSTS_DIR.glob("*.md"))]
++    posts.sort(key=lambda post: (post["date"], post["slug"]), reverse=True)
++
++    clashes = [slug for slug, n in Counter(p["slug"] for p in posts).items() if n > 1]
++    if clashes:
++        raise ValueError(f"two posts share a slug: {', '.join(sorted(clashes))}")
+     return posts
+ 
+ 
+ def load_pages() -> list[dict]:
+-    return [parse_page(p) for p in sorted(PAGES_DIR.glob("*.md"))]
++    return [parse_page(path) for path in sorted(PAGES_DIR.glob("*.md"))]
+ 
+ 
+-def group_by_tag(posts: list[dict]) -> dict:
+-    tags: dict[str, list[dict]] = {}
++def group_by_tag(posts: list[dict]) -> list[dict]:
++    """Collect posts under each tag. The display name stays as written; the URL
++    gets an ASCII slug, so a tag with diacritics still works."""
++    grouped: dict[str, dict] = {}
+     for post in posts:
+-        for tag in post["tags"]:
+-            tags.setdefault(tag, []).append(post)
+-    return dict(sorted(tags.items()))
++        for name in post["tags"]:
++            slug = slugify(name)
++            tag = grouped.setdefault(
++                slug, {"name": name, "slug": slug, "url": f"/tags/{slug}/", "posts": []}
++            )
++            tag["posts"].append(post)
++    # Sort on the slug, so "štítek" lands under S rather than after Z.
++    return sorted(grouped.values(), key=lambda tag: tag["slug"])
++
++
++# --------------------------------------------------------------------------
++# Rendering
++# --------------------------------------------------------------------------
+ 
+ 
+ def render(template_name: str, out_path: Path, **context) -> None:
+-    template = env.get_template(template_name)
+     out_path.parent.mkdir(parents=True, exist_ok=True)
+     out_path.write_text(
+-        template.render(site=SITE, current_year=datetime.now().year, **context),
++        env.get_template(template_name).render(
++            site=SITE, current_year=date.today().year, **context
++        ),
+         encoding="utf-8",
+     )
+ 
+ 
+ def build() -> None:
+-    if OUTPUT_DIR.exists():
+-        shutil.rmtree(OUTPUT_DIR)
+-    OUTPUT_DIR.mkdir(parents=True)
+-
++    # Parse before deleting dist/, so a broken post leaves the previous build
++    # in place instead of an empty directory.
+     posts = load_posts()
+     pages = load_pages()
+     tags = group_by_tag(posts)
+ 
+-    render("index.html", OUTPUT_DIR / "index.html", posts=posts, tags=tags)
++    if OUTPUT_DIR.exists():
++        shutil.rmtree(OUTPUT_DIR)
++    OUTPUT_DIR.mkdir(parents=True)
++
++    # post-list.html is used twice: bare for the home page, and with a heading
++    # and a way back for each tag archive. Both arguments are always passed so
++    # StrictUndefined keeps catching genuine typos.
++    render("post-list.html", OUTPUT_DIR / "index.html", posts=posts, heading=None,
++           back_link=None)
+ 
+     for post in posts:
+         render("post.html", OUTPUT_DIR / "posts" / post["slug"] / "index.html", post=post)
+ 
+-    for tag, tag_posts in tags.items():
+-        render("tag.html", OUTPUT_DIR / "tags" / tag / "index.html", tag=tag, posts=tag_posts)
++    render("tag-list.html", OUTPUT_DIR / "tags" / "index.html", tags=tags)
+ 
+-    render("tags.html", OUTPUT_DIR / "tags" / "index.html", tags=tags)
++    for tag in tags:
++        render(
++            "post-list.html",
++            OUTPUT_DIR / "tags" / tag["slug"] / "index.html",
++            posts=tag["posts"],
++            heading=f"Příspěvky se štítkem „{tag['name']}“",
++            back_link={"url": "/tags/", "title": "Všechny štítky"},
++        )
+ 
+     for page in pages:
+         render("page.html", OUTPUT_DIR / page["slug"] / "index.html", page=page)
+ 
++    # GitHub Pages serves /404.html for any path it cannot match.
++    render("404.html", OUTPUT_DIR / "404.html")
++
+     if STATIC_DIR.exists():
+         shutil.copytree(STATIC_DIR, OUTPUT_DIR / "static")
+ 
+-    print(f"Built {len(posts)} post(s), {len(tags)} tag(s), {len(pages)} page(s) -> {OUTPUT_DIR}/")
++    # Derived from SITE["url"], so the domain is configured in one place
++    # instead of also being hardcoded in the deploy workflow.
++    (OUTPUT_DIR / "CNAME").write_text(urlparse(SITE["url"]).netloc + "\n", encoding="utf-8")
+ 
++    print(f"Built {len(posts)} post(s), {len(tags)} tag(s), {len(pages)} page(s) -> dist/")
+ 
+-def serve() -> None:
+-    import functools
+ 
+-    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(OUTPUT_DIR))
+-    server = HTTPServer(("localhost", 8000), handler)
+-    print("Serving http://localhost:8000  (Ctrl+C to stop)")
+-    server.serve_forever()
++def serve() -> None:
++    handler = partial(SimpleHTTPRequestHandler, directory=str(OUTPUT_DIR))
++    print("Serving http://{}:{}  (Ctrl+C to stop)".format(*SERVE_ADDRESS))
++    try:
++        HTTPServer(SERVE_ADDRESS, handler).serve_forever()
++    except KeyboardInterrupt:
++        print()
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/content/pages/about.md b/content/pages/about.md
+index eb70e59..bad2c2d 100644
+--- a/content/pages/about.md
++++ b/content/pages/about.md
+@@ -1,5 +1,6 @@
+ ---
+-title: About
++title: O blogu
++nav_order: 30
+ ---
+ 
+ I write short notes here about the things I'm doing — baking, running,
+diff --git a/content/posts/2026-07-15-sourdough-bread.md b/content/posts/2026-07-15-sourdough-bread.md
+deleted file mode 100644
+index 259475f..0000000
+--- a/content/posts/2026-07-15-sourdough-bread.md
++++ /dev/null
+@@ -1,33 +0,0 @@
+----
+-title: "[test] How I Bake Sourdough Bread:"
+-date: 2026-07-15
+-tags: [baking, life]
+-summary: My weekend routine for a reliable loaf, from feeding the starter to the final bake.
+----
+-
+-I've been baking sourdough most weekends for the past year, and I finally have
+-a routine reliable enough to write down.
+-
+-## The starter
+-
+-Feed it 1:1:1 (starter:flour:water) the night before. By morning it should
+-have roughly doubled and pass the float test.
+-
+-## The dough
+-
+-- 500g bread flour
+-- 350g water
+-- 100g active starter
+-- 10g salt
+-
+-Mix, rest 30 minutes, then do four sets of stretch-and-folds, 30 minutes apart.
+-Bulk ferment until it's grown by about 50%.
+-
+-![A fresh sourdough loaf cooling on a wire rack](/static/images/posts/sourdough-loaf.jpg)
+-
+-## The bake
+-
+-Dutch oven, lid on, 30 minutes at 240°C, then lid off for another 15-20
+-minutes until the crust is deep brown.
+-
+-That's it — no exotic technique, just consistency.
+diff --git a/content/posts/2026-07-20-marathon-training.md b/content/posts/2026-07-20-marathon-training.md
+deleted file mode 100644
+index 26a7e96..0000000
+--- a/content/posts/2026-07-20-marathon-training.md
++++ /dev/null
+@@ -1,38 +0,0 @@
+----
+-title: Marathon Training, Week 12
+-date: 2026-07-20
+-tags: [running, life]
+-summary: recovery week
+----
+-
+-Twelve weeks into the training block. Quick summary of what's working and
+-what isn't.
+-
+-## This week
+-
+-Recovery. Sleep&rest so I can enter the final training block prepared.
+-
+-## Last week
+-
+-- Mon: rest
+-- Tue: 7km easy
+-- Wed: rest
+-- Thu: rest, bike ride in the afternoon
+-- Fri: 35km long run
+-- Sat: rest
+-- Sun: rest
+-
+-## Notes
+-
+-Long runs are starting to feel like the actual point of the week rather than
+-the scary part. Sleep matters more than any single workout — obvious in
+-hindsight, but easy to ignore when the plan says "run." Life gets into the way -
+-last week's original plan was
+-
+-- Mon: rest
+-- Tue: 12km easy
+-- Wed: 10x1' uphill intervals
+-- Thu: rest
+-- Fri: 35km long run
+-- Sat: rest
+-- Sun: 6km easy
+diff --git a/content/posts/2026-07-21-testing-post.md b/content/posts/2026-07-21-testing-post.md
+deleted file mode 100644
+index 3130090..0000000
+--- a/content/posts/2026-07-21-testing-post.md
++++ /dev/null
+@@ -1,21 +0,0 @@
+----
+-title: Testing post
+-date: 2026-07-21
+-summary: I'm trying to start my own blog.
+----
+-
+-It's summer 2026. It's been some time since I came across the thought of having my own blog where I could write about my life. Inspired by [ordep.dev](https://ordep.dev) blog, I decided to start my own. I wanted it dead simple, so I went with Github pages I discovered just recently. Now I can edit my website just by adding a .md file, which can be done even from mobile.
+-
+-## stuff I want to post
+-
+-- sideprojects
+-- analogue photography
+-- sourdough baking experience
+-- running and training plans
+-- music I like or write
+-- books I read
+-- recipes
+-
+-## final note
+-
+-Maybe I won't make it, but at least I tried.
+\ No newline at end of file
+diff --git a/requirements.txt b/requirements.txt
+index 62876c4..b0fd790 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,3 +1,3 @@
+-Jinja2>=3.1
+-Markdown>=3.6
+-PyYAML>=6.0
++Jinja2>=3.1,<4
++Markdown>=3.6,<4
++PyYAML>=6.0,<7
+diff --git a/static/site.webmanifest b/static/site.webmanifest
+index 45dc8a2..ce04626 100644
+--- a/static/site.webmanifest
++++ b/static/site.webmanifest
+@@ -1 +1,12 @@
+-{"name":"","short_name":"","icons":[{"src":"/android-chrome-192x192.png","sizes":"192x192","type":"image/png"},{"src":"/android-chrome-512x512.png","sizes":"512x512","type":"image/png"}],"theme_color":"#ffffff","background_color":"#ffffff","display":"standalone"}
+\ No newline at end of file
++{
++  "name": "Komorebi",
++  "short_name": "Komorebi",
++  "start_url": "/",
++  "display": "minimal-ui",
++  "background_color": "#faf9f6",
++  "theme_color": "#935f35",
++  "icons": [
++    { "src": "/static/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
++    { "src": "/static/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
++  ]
++}
+diff --git a/static/style.css b/static/style.css
+index 7aaa4c1..d231571 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -1,59 +1,85 @@
++/* ==========================================================================
++   Komorebi — blog stylesheet
++
++   Same section order as the songbook repo:
++     1. Theme tokens   2. Base   3. Layout   4. Header   5. Indexes
++     6. Single item    7. Content typography   8. Footer   9. Preferences
++
++   Every colour is a token below. Nothing further down hardcodes one.
++   ========================================================================== */
++
++/* 1. Theme tokens ------------------------------------------------------- */
++
+ :root {
+-  --bg: #faf9f6;
+-  --ink: #22221f;
+-  --muted: #8c887f;
+-  --accent: #935f35; /* crust brown */
+-  --line: #e4e1d9;
+-  --code-bg: #f0efe9;
++  /* Makes light-dark() resolve, and gives form controls and scrollbars the
++     right defaults. */
++  color-scheme: light dark;
++
++  /*                  light       dark    -- muted is 4.6:1 on bg, the floor
++                                             for body-size text. */
++  --bg:      light-dark(#faf9f6, #1c1b18);  /* page background              */
++  --ink:     light-dark(#22221f, #f4f3ef);  /* body text                    */
++  --muted:   light-dark(#767268, #a19d93);  /* dates, captions              */
++  --accent:  light-dark(#935f35, #d49460);  /* crust brown                  */
++  --line:    light-dark(#e4e1d9, #2e2c27);  /* hairline rules               */
++  --code-bg: light-dark(#f0efe9, #242320);  /* code and inset blocks        */
+ 
+   --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
++  --sans: 'Alegreya Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+-}
+ 
+-@media (prefers-color-scheme: dark) {
+-  :root:not([data-theme="light"]) {
+-    --bg: #1c1b18;      /* Deep warm charcoal */
+-    --ink: #f4f3ef;     /* Soft off-white text */
+-    --muted: #a19d93;   /* Lifted mid-tone grey for dark background contrast */
+-    --accent: #d49460;  /* Brightened crust brown for high readability */
+-    --line: #2e2c27;    /* Subtle dark border */
+-    --code-bg: #242320; /* Elevated surface tone for code blocks */
+-
+-    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-    --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+-  }
++  --measure: 640px;
+ }
+ 
+-[data-theme="dark"] {
+-  --bg: #1c1b18;
+-  --ink: #f4f3ef;
+-  --muted: #a19d93;
+-  --accent: #d49460;
+-  --line: #2e2c27;
+-  --code-bg: #242320;
+-}
++/* theme.js sets data-theme when the reader picks a side; without it the
++   OS preference wins through `color-scheme: light dark` above. */
++[data-theme="light"] { color-scheme: light; }
++[data-theme="dark"] { color-scheme: dark; }
++
++/* 2. Base --------------------------------------------------------------- */
+ 
+-* { box-sizing: border-box; }
++*,
++*::before,
++*::after { box-sizing: border-box; }
+ 
+ body {
+   margin: 0;
+   background: var(--bg);
+   color: var(--ink);
+   font-family: var(--sans);
+-  font-size: 17px;
++  font-size: 1.1rem; /* tuned for the Alegreya Sans x-height */
+   line-height: 1.6;
+   -webkit-font-smoothing: antialiased;
+ }
+ 
++a:focus-visible,
++button:focus-visible {
++  outline: 2px solid var(--accent);
++  outline-offset: 2px;
++}
++
++/* Present for screen readers and the document outline, absent on screen. */
++.visually-hidden {
++  position: absolute;
++  width: 1px;
++  height: 1px;
++  margin: -1px;
++  padding: 0;
++  overflow: hidden;
++  clip-path: inset(50%);
++  white-space: nowrap;
++}
++
++/* 3. Layout ------------------------------------------------------------- */
++
+ .wrap {
+-  max-width: 640px;
++  max-width: var(--measure);
+   margin: 0 auto;
+   padding: 4rem 1.5rem 6rem;
+ }
+ 
+-/* Header Layout */
++/* 4. Header ------------------------------------------------------------- */
++
+ .site-header {
+   display: grid;
+   grid-template-columns: 1fr auto;
+@@ -61,13 +87,11 @@ body {
+   margin-bottom: 3.5rem;
+ }
+ 
+-.site-header-content {
+-  grid-column: 1;
+-}
++.site-header-content { grid-column: 1; }
+ 
+ .site-title {
+   font-family: var(--serif);
+-  font-size: 1.5rem;
++  font-size: 1.6rem;
+   font-weight: 600;
+   color: var(--ink);
+   text-decoration: none;
+@@ -77,12 +101,12 @@ body {
+ .site-tagline {
+   margin: 0.35rem 0 1.1rem;
+   color: var(--muted);
+-  font-size: 0.95rem;
++  font-size: 1rem;
+ }
+ 
+ .site-nav a {
+-  font-family: var(--mono);
+-  font-size: 0.85rem;
++  font-size: 1.05rem;
++  font-weight: 500;
+   color: var(--ink);
+   text-decoration: none;
+   margin-right: 1.25rem;
+@@ -91,7 +115,12 @@ body {
+ 
+ .site-nav a:hover { border-bottom-color: var(--accent); }
+ 
+-#theme-toggle {
++/* Theme toggle. Markup is templates/_theme-toggle.html, shared verbatim with
++   the songbook; only the placement differs. Hidden unless theme.js ran,
++   because without JS the button could not do anything. */
++#theme-toggle { display: none; }
++
++.has-js #theme-toggle {
+   grid-column: 2;
+   background: none;
+   border: none;
+@@ -99,27 +128,19 @@ body {
+   padding: 0.25rem;
+   display: inline-flex;
+   align-items: center;
+-  justify-content: center;
+   color: var(--muted);
+   transition: color 0.15s ease;
+ }
+ 
+-#theme-toggle:hover {
+-  color: var(--accent);
+-}
++#theme-toggle:hover { color: var(--accent); }
+ 
+-/* Icon switching logic */
++/* Show the icon for the theme you would switch *to*. The media query covers
++   the moment before theme.js runs, and readers with JS disabled. */
+ .sun-icon,
+-.moon-icon {
+-  display: none;
+-}
++.moon-icon { display: none; }
+ 
+-/* Light mode defaults (or system light mode): show Moon */
+-.moon-icon {
+-  display: block;
+-}
++.moon-icon { display: block; }
+ 
+-/* Dark mode (explicit data-theme or system preference): show Sun */
+ @media (prefers-color-scheme: dark) {
+   html:not([data-theme="light"]) .moon-icon { display: none; }
+   html:not([data-theme="light"]) .sun-icon { display: block; }
+@@ -127,9 +148,23 @@ body {
+ 
+ [data-theme="dark"] .moon-icon { display: none; }
+ [data-theme="dark"] .sun-icon { display: block; }
++[data-theme="light"] .moon-icon { display: block; }
++[data-theme="light"] .sun-icon { display: none; }
++
++/* 5. Indexes (post list, tag list) -------------------------------------- */
++
++/* Heading of a derived index (tag archive, tag list). */
++.archive-title {
++  font-family: var(--serif);
++  font-size: 1.4rem;
++  margin: 0 0 1.5rem;
++}
+ 
+-/* Post list (home / tag archive) */
+-.post-list { list-style: none; margin: 0; padding: 0; }
++.post-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
+ 
+ .post-item {
+   padding: 1.25rem 0;
+@@ -138,6 +173,55 @@ body {
+ 
+ .post-item:last-child { border-bottom: 1px solid var(--line); }
+ 
++.post-item .post-title {
++  font-family: var(--serif);
++  font-size: 1.2rem;
++  color: var(--ink);
++  text-decoration: none;
++}
++
++.post-item .post-title:hover { color: var(--accent); }
++
++.post-summary {
++  margin: 0.4rem 0 0;
++  color: var(--muted);
++  font-size: 1rem;
++}
++
++.tag-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
++
++.tag-list li {
++  padding: 0.5rem 0;
++  border-top: 1px solid var(--line);
++  font-size: 1.05rem;
++}
++
++.tag-list a {
++  color: var(--ink);
++  text-decoration: none;
++}
++
++.tag-list a:hover { color: var(--accent); }
++
++.tag-count {
++  color: var(--muted);
++  font-family: var(--mono);
++  font-size: 0.85em;
++}
++
++/* 6. Single item (post, page) ------------------------------------------- */
++
++/* Heading of an authored page. Same rule in the songbook. */
++.page-title {
++  font-family: var(--serif);
++  font-size: 1.6rem;
++  margin: 0 0 1.5rem;
++}
++
+ .post-date {
+   display: block;
+   font-family: var(--mono);
+@@ -147,77 +231,98 @@ body {
+   margin-bottom: 0.3rem;
+ }
+ 
+-.post-item .post-title {
++article.post .post-date { margin-bottom: 0; }
++
++article.post .post-title {
++  display: block;
+   font-family: var(--serif);
+-  font-size: 1.15rem;
+-  color: var(--ink);
++  font-size: 2.1rem;
++  margin: 0.3rem 0 0.6rem;
+   text-decoration: none;
+ }
+ 
+-.post-item .post-title:hover,
+-.post-content a:hover { color: var(--accent); }
+-
+-.post-summary {
+-  margin: 0.4rem 0 0;
+-  color: var(--muted);
+-  font-size: 0.95rem;
+-}
+-
+ .post-tags {
+   margin: 0.5rem 0 0;
+   font-family: var(--mono);
+   font-size: 0.78rem;
+ }
+ 
+-.post-tags a { color: var(--accent); text-decoration: none; }
++.post-tags a {
++  color: var(--accent);
++  text-decoration: none;
++}
++
+ .post-tags a:hover { text-decoration: underline; }
+ 
+-/* Single post */
+-article.post .post-title {
+-  display: block;
+-  font-family: var(--serif);
+-  font-size: 2rem;
+-  margin: 0.3rem 0 0.6rem;
++.back-link {
++  margin-top: 3rem;
++  font-size: 0.95rem;
++}
++
++.back-link a {
++  color: var(--muted);
+   text-decoration: none;
+ }
+ 
+-article.post .post-date { margin-bottom: 0; }
++.back-link a:hover { color: var(--accent); }
+ 
+-.post-content { margin-top: 2rem; font-size: 1.02rem; }
+-.post-content p { margin: 1.1em 0; }
++/* 7. Content typography -------------------------------------------------- */
+ 
+-.post-content img {
+-  max-width: 100%;
+-  height: auto;
+-  border-radius: 3px;
+-  margin: 1.5rem 0;
++.post-content {
++  margin-top: 2rem;
++  font-size: 1.1rem;
+ }
+ 
++.post-content p { margin: 1.1em 0; }
++
+ .post-content h2 {
+   font-family: var(--serif);
+-  font-size: 1.35rem;
++  font-size: 1.4rem;
+   margin: 2.2em 0 0.6em;
+ }
+ 
+ .post-content h3 {
+   font-family: var(--serif);
+-  font-size: 1.1rem;
++  font-size: 1.15rem;
+   margin: 1.8em 0 0.5em;
+ }
+ 
++/* Never smaller than body text, which is the UA default for h4 at this size. */
++.post-content h4 {
++  font-family: var(--serif);
++  font-size: 1rem;
++  font-weight: 600;
++  margin: 1.6em 0 0.4em;
++}
++
++.post-content ul,
++.post-content ol { padding-left: 1.3rem; }
++
++.post-content li { margin: 0.4rem 0; }
++
+ .post-content a {
+   color: var(--ink);
+   text-decoration: underline;
+-  text-decoration-color: var(--line);
++  text-decoration-color: var(--accent);
++  text-decoration-thickness: 1.5px;
+   text-underline-offset: 3px;
+ }
+ 
++.post-content a:hover { color: var(--accent); }
++
++.post-content img {
++  max-width: 100%;
++  height: auto;
++  border-radius: 3px;
++  margin: 1.5rem 0;
++}
++
+ .post-content code {
+   font-family: var(--mono);
+   background: var(--code-bg);
+   padding: 0.1em 0.35em;
+   border-radius: 3px;
+-  font-size: 0.9em;
++  font-size: 0.88em;
+ }
+ 
+ .post-content pre {
+@@ -227,7 +332,10 @@ article.post .post-date { margin-bottom: 0; }
+   border-radius: 4px;
+ }
+ 
+-.post-content pre code { background: none; padding: 0; }
++.post-content pre code {
++  background: none;
++  padding: 0;
++}
+ 
+ .post-content blockquote {
+   margin: 1.5em 0;
+@@ -236,190 +344,41 @@ article.post .post-date { margin-bottom: 0; }
+   color: var(--muted);
+ }
+ 
+-/* Archive / tags */
+-.archive-title {
+-  font-family: var(--serif);
+-  font-size: 1.4rem;
+-  margin-bottom: 1.5rem;
+-}
+-
+-.tag-list { list-style: none; padding: 0; }
+-
+-.tag-list li {
+-  padding: 0.5rem 0;
+-  border-top: 1px solid var(--line);
+-  font-family: var(--mono);
++/* Emitted by the Markdown `footnotes` extension. */
++.footnote {
+   font-size: 0.95rem;
++  margin-top: 3rem;
++  opacity: 0.85;
+ }
+ 
+-.tag-list a { color: var(--ink); text-decoration: none; }
+-.tag-list a:hover { color: var(--accent); }
+-.tag-count { color: var(--muted); font-size: 0.85em; }
++.footnote hr { margin-bottom: 1rem; }
++.footnote ol { padding-left: 1.5rem; }
+ 
+-.back-link { margin-top: 3rem; font-family: var(--mono); font-size: 0.85rem; }
+-.back-link a { color: var(--muted); text-decoration: none; }
+-.back-link a:hover { color: var(--accent); }
++/* 8. Footer -------------------------------------------------------------- */
+ 
+-/* Footer */
++/* Alignment follows this site's header, which is left-aligned. The songbook's
++   header is centred, so its footer is centred. Same rule, different answer. */
+ .site-footer {
+   margin-top: 5rem;
+   padding-top: 1.5rem;
+   border-top: 1px solid var(--line);
+   color: var(--muted);
+-  font-family: var(--mono);
+-  font-size: 0.78rem;
++  font-size: 0.9rem;
++  text-align: left;
+ }
+ 
+-a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
++/* 9. Preferences --------------------------------------------------------- */
+ 
+ @media (max-width: 480px) {
+   .wrap { padding: 2.5rem 1.25rem 4rem; }
+-  article.post .post-title { font-size: 1.6rem; }
++  article.post .post-title { font-size: 1.75rem; }
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+-  * { transition: none !important; }
+-}
+-
+-
+-/* ==========================================================================
+-   Songbook & Accordion Components
+-   ========================================================================== */
+-
+-/* Download Actions Container */
+-.download-group {
+-  margin: 2rem 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: 0.75rem;
+-}
+-
+-/* Base Button Style */
+-.btn {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  gap: 0.55rem;
+-  padding: 0.8rem 1.2rem;
+-  font-family: var(--sans);
+-  font-size: 0.95rem;
+-  font-weight: 600;
+-  text-decoration: none !important; /* Prevents link underlining */
+-  border-radius: 5px;
+-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+-  box-sizing: border-box;
+-  line-height: 1.2;
+-}
+-
+-/* Ensure post-content generic link styling doesn't override button text */
+-.post-content a.btn {
+-  text-decoration: none !important;
+-}
+-
+-/* Primary Button (Main Songbook) */
+-.btn-primary {
+-  background-color: var(--accent);
+-  color: #ffffff !important; /* Force crisp white text in both light/dark mode */
+-  border: 1px solid var(--accent);
+-  font-size: 1.05rem;
+-  width: 100%;
+-  padding: 0.95rem 1.25rem;
+-}
+-
+-/* Hover state: slight opacity drop keeps text perfectly legible */
+-.btn-primary:hover {
+-  opacity: 0.9;
+-  color: #ffffff !important;
+-  background-color: var(--accent);
+-  border-color: var(--accent);
+-}
+-
+-/* Secondary Button Grid (Lidovky & Koledy) */
+-.download-secondary-grid {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: 0.75rem;
+-}
+-
+-/* Secondary Buttons */
+-.btn-secondary {
+-  background-color: transparent;
+-  color: var(--ink) !important;
+-  border: 1px solid var(--line);
+-  font-size: 0.9rem;
+-  font-weight: 500;
+-}
+-
+-.btn-secondary:hover {
+-  background-color: var(--code-bg);
+-  border-color: var(--muted);
+-  color: var(--ink) !important;
+-}
+-
+-/* Responsive Secondary Buttons */
+-@media (max-width: 480px) {
+-  .download-secondary-grid {
+-    grid-template-columns: 1fr;
++  *,
++  *::before,
++  *::after {
++    transition-duration: 0.01ms !important;
++    animation-duration: 0.01ms !important;
+   }
+ }
+-
+-/* Accordion Component (<details> / <summary>) */
+-details.accordion {
+-  border: 1px solid var(--line);
+-  border-radius: 5px;
+-  margin-bottom: 1rem;
+-  background: var(--bg);
+-  overflow: hidden;
+-}
+-
+-details.accordion summary {
+-  padding: 0.85rem 1.1rem;
+-  font-family: var(--serif);
+-  font-size: 1.1rem;
+-  font-weight: 600;
+-  color: var(--ink);
+-  cursor: pointer;
+-  user-select: none;
+-  list-style: none; /* Hide default browser marker */
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-}
+-
+-details.accordion summary::-webkit-details-marker {
+-  display: none;
+-}
+-
+-details.accordion summary::after {
+-  content: "+";
+-  font-family: var(--mono);
+-  font-size: 1.1rem;
+-  font-weight: 400;
+-  color: var(--muted);
+-}
+-
+-details.accordion[open] summary::after {
+-  content: "−";
+-}
+-
+-details.accordion summary:hover::after {
+-  color: var(--accent);
+-}
+-
+-details.accordion[open] summary {
+-  border-bottom: 1px solid var(--line);
+-  background-color: var(--code-bg);
+-}
+-
+-.accordion-content {
+-  padding: 1.2rem 1.1rem;
+-  font-size: 1rem;
+-}
+-
+-.accordion-content p:first-child {
+-  margin-top: 0;
+-}
+-
+-.accordion-content p:last-child {
+-  margin-bottom: 0;
+-}
+\ No newline at end of file
+diff --git a/templates/base.html b/templates/base.html
+index f0e2167..fac1711 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -1,60 +1,42 @@
+ <!doctype html>
+ <html lang="{{ site.lang }}">
+-<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+-<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+-<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+-<link rel="manifest" href="/static/site.webmanifest">
+ <head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   <title>{% block title %}{{ site.title }}{% endblock %}</title>
+-  <meta name="description" content="{{ site.description }}">
++  <meta name="description" content="{% block description %}{{ site.description }}{% endblock %}">
++
++  <link rel="preconnect" href="https://fonts.googleapis.com">
++  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700&display=swap">
++
++  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
++  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
++  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
++  <link rel="icon" href="/static/favicon.ico" sizes="any">
++  <link rel="manifest" href="/static/site.webmanifest">
++  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6">
++  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1b18">
+ 
+-  <!-- Prevent FOUC: Set theme attribute immediately before render -->
+-  <script>
+-    (function() {
+-      const savedTheme = localStorage.getItem('theme');
+-      if (savedTheme) {
+-        document.documentElement.setAttribute('data-theme', savedTheme);
+-      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+-        document.documentElement.setAttribute('data-theme', 'dark');
+-      }
+-    })();
+-  </script>
+   <link rel="stylesheet" href="/static/style.css">
++  {# Deliberately render-blocking: it sets data-theme before first paint, #}
++  {# which is what stops a light flash on a dark-mode reader's screen. #}
++  <script src="/static/theme.js"></script>
+ </head>
+ <body>
+   <div class="wrap">
+     <header class="site-header">
+       <div class="site-header-content">
+-        <a class="site-title" href="https://f.hluchnikovi.cz/">{{ site.title }}</a>
++        <a class="site-title" href="/">{{ site.title }}</a>
+         <p class="site-tagline">{{ site.description }}</p>
+         <nav class="site-nav">
+-          <a href="https://f.hluchnikovi.cz/">{{ site.nav.posts }}</a>
+-          <a href="https://f.hluchnikovi.cz/tags/">{{ site.nav.tags }}</a>
+-          <a href="https://f.hluchnikovi.cz/about/">{{ site.nav.about }}</a>
+-          <a href="https://zpevnik.hluchnikovi.cz/">{{ site.nav.songbook }}</a>
++          <a href="/">Příspěvky</a>
++          <a href="/tags/">Štítky</a>
++          <a href="/about/">O blogu</a>
++          <a href="/projects/">Projekty</a>
+         </nav>
+       </div>
+-
+-      <button id="theme-toggle" type="button" aria-label="Toggle dark mode">
+-        <!-- Sun Icon (shown in dark mode) -->
+-        <svg class="sun-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+-          <circle cx="12" cy="12" r="5"></circle>
+-          <line x1="12" y1="1" x2="12" y2="3"></line>
+-          <line x1="12" y1="21" x2="12" y2="23"></line>
+-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+-          <line x1="1" y1="12" x2="3" y2="12"></line>
+-          <line x1="21" y1="12" x2="23" y2="12"></line>
+-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+-        </svg>
+-        <!-- Moon Icon (shown in light mode) -->
+-        <svg class="moon-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+-        </svg>
+-      </button>
++      {% include "_theme-toggle.html" %}
+     </header>
+ 
+     <main>
+@@ -65,26 +47,5 @@
+       <p>&copy; {{ current_year }} {{ site.title }}</p>
+     </footer>
+   </div>
+-
+-  <script>
+-  const toggleBtn = document.getElementById('theme-toggle');
+-
+-  toggleBtn.addEventListener('click', () => {
+-    const currentTheme = document.documentElement.getAttribute('data-theme');
+-    let newTheme = 'light';
+-
+-    if (currentTheme === 'dark') {
+-      newTheme = 'light';
+-    } else if (currentTheme === 'light') {
+-      newTheme = 'dark';
+-    } else {
+-      const osIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+-      newTheme = osIsDark ? 'light' : 'dark';
+-    }
+-
+-    document.documentElement.setAttribute('data-theme', newTheme);
+-    localStorage.setItem('theme', newTheme);
+-  });
+-</script>
+ </body>
+ </html>
+diff --git a/templates/index.html b/templates/index.html
+deleted file mode 100644
+index 5dd7566..0000000
+--- a/templates/index.html
++++ /dev/null
+@@ -1,18 +0,0 @@
+-{% extends "base.html" %}
+-
+-{% block content %}
+-<ul class="post-list">
+-  {% for post in posts %}
+-  <li class="post-item">
+-    <span class="post-date">{{ post.date.strftime('%Y.%m.%d') }}</span>
+-    <a class="post-title" href="{{ post.url }}">{{ post.title }}</a>
+-    {% if post.summary %}<p class="post-summary">{{ post.summary }}</p>{% endif %}
+-    {% if post.tags %}
+-    <p class="post-tags">{% for tag in post.tags %}<a href="/tags/{{ tag }}/">{{ tag }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+-    {% endif %}
+-  </li>
+-  {% else %}
+-  <li class="post-item">No posts yet. Add a Markdown file to <code>content/posts/</code>.</li>
+-  {% endfor %}
+-</ul>
+-{% endblock %}
+diff --git a/templates/page.html b/templates/page.html
+index 7d43f09..2b5f8d0 100644
+--- a/templates/page.html
++++ b/templates/page.html
+@@ -1,10 +1,12 @@
++{# A single authored page: content/pages/<slug>.md.
++   Same markup as the songbook's page.html, on purpose. #}
+ {% extends "base.html" %}
+ 
+ {% block title %}{{ page.title }} — {{ site.title }}{% endblock %}
+ 
+ {% block content %}
+-<article class="post">
+-  <h1 class="post-title">{{ page.title }}</h1>
++<article>
++  <h1 class="page-title">{{ page.title }}</h1>
+   <div class="post-content">
+     {{ page.content | safe }}
+   </div>
+diff --git a/templates/post.html b/templates/post.html
+index edb0086..b8125dc 100644
+--- a/templates/post.html
++++ b/templates/post.html
+@@ -1,17 +1,19 @@
++{# A single post. #}
+ {% extends "base.html" %}
+ 
+ {% block title %}{{ post.title }} — {{ site.title }}{% endblock %}
++{% block description %}{{ post.summary or site.description }}{% endblock %}
+ 
+ {% block content %}
+ <article class="post">
+-  <p class="post-date">{{ post.date.strftime('%Y.%m.%d') }}</p>
++  <p class="post-date"><time datetime="{{ post.date.isoformat() }}">{{ post.date | format_date }}</time></p>
+   <h1 class="post-title">{{ post.title }}</h1>
+   {% if post.tags %}
+-  <p class="post-tags">{% for tag in post.tags %}<a href="/tags/{{ tag }}/">{{ tag }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
++  {% include "_tags.html" %}
+   {% endif %}
+   <div class="post-content">
+     {{ post.content | safe }}
+   </div>
+-  <p class="back-link"><a href="/">&larr; All posts</a></p>
++  <p class="back-link"><a href="/">&larr; Všechny příspěvky</a></p>
+ </article>
+ {% endblock %}
+diff --git a/templates/tag.html b/templates/tag.html
+deleted file mode 100644
+index c667d20..0000000
+--- a/templates/tag.html
++++ /dev/null
+@@ -1,16 +0,0 @@
+-{% extends "base.html" %}
+-
+-{% block title %}#{{ tag }} — {{ site.title }}{% endblock %}
+-
+-{% block content %}
+-<h1 class="archive-title">Posts tagged &ldquo;{{ tag }}&rdquo;</h1>
+-<ul class="post-list">
+-  {% for post in posts %}
+-  <li class="post-item">
+-    <span class="post-date">{{ post.date.strftime('%Y.%m.%d') }}</span>
+-    <a class="post-title" href="{{ post.url }}">{{ post.title }}</a>
+-  </li>
+-  {% endfor %}
+-</ul>
+-<p class="back-link"><a href="/tags/">&larr; All tags</a></p>
+-{% endblock %}
+diff --git a/templates/tags.html b/templates/tags.html
+deleted file mode 100644
+index 119e6d2..0000000
+--- a/templates/tags.html
++++ /dev/null
+@@ -1,14 +0,0 @@
+-{% extends "base.html" %}
+-
+-{% block title %}Tags — {{ site.title }}{% endblock %}
+-
+-{% block content %}
+-<h1 class="archive-title">Tags</h1>
+-<ul class="tag-list">
+-  {% for tag, tag_posts in tags.items() %}
+-  <li><a href="/tags/{{ tag }}/">{{ tag }}</a> <span class="tag-count">({{ tag_posts|length }})</span></li>
+-  {% else %}
+-  <li>No tags yet.</li>
+-  {% endfor %}
+-</ul>
+-{% endblock %}
