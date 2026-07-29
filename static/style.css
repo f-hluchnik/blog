@@ -344,6 +344,25 @@ article.post .post-title {
   color: var(--muted);
 }
 
+.post-content table {
+  width: 100%;
+  margin: 1.8em 0;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+
+.post-content th,
+.post-content td {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.post-content th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
 /* Emitted by the Markdown `footnotes` extension. */
 .footnote {
   font-size: 0.95rem;
