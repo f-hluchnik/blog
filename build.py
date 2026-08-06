@@ -33,6 +33,7 @@ from datetime import date, datetime
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+from PIL import Image, ImageOps
 from urllib.parse import urlparse
 
 import markdown
@@ -49,6 +50,14 @@ PAGES_DIR = ROOT / "content" / "pages"
 TEMPLATES_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 OUTPUT_DIR = ROOT / "dist"
+PHOTOS_DIR = ROOT / "content" / "photos"
+PHOTOS_SOURCE_DIR = PHOTOS_DIR / "source"
+
+# Photo derivatives: thumbnails are square (a real, permanent crop of the
+# derivative -- the source file itself is never touched); full images keep
+# their original aspect ratio and are only capped, never cropped.
+THUMB_SIZE = 800   # px, square
+FULL_MAX = 2000    # px, longest edge
 
 SERVE_ADDRESS = ("localhost", 8000)
 
@@ -182,6 +191,72 @@ def load_posts() -> list[dict]:
 def load_pages() -> list[dict]:
     return [parse_page(path) for path in sorted(PAGES_DIR.glob("*.md"))]
 
+def parse_photo(path: Path) -> dict:
+    """One file in content/photos/ -> a photo dict. `source` must name a file
+    in content/photos/source/; only its generated derivatives are ever
+    written into dist/, so the original is never served directly."""
+    meta, body = split_front_matter(path.read_text(encoding="utf-8"))
+    missing = [key for key in ("source", "caption") if key not in meta]
+    if missing:
+        raise ValueError(f"{path}: front matter is missing {', '.join(missing)}")
+
+    source = PHOTOS_SOURCE_DIR / meta["source"]
+    if not source.exists():
+        raise ValueError(f"{path}: source image '{meta['source']}' not found in {PHOTOS_SOURCE_DIR}")
+
+    photo_date = meta.get("date")
+    if isinstance(photo_date, str):
+        photo_date = datetime.strptime(photo_date, "%Y-%m-%d").date()
+
+    # Optional technical details, joined into one quiet secondary line, e.g.
+    # "Nikon F60 · Fujifilm 400 · 50mm". Any of these may be omitted.
+    details = [meta.get("camera"), meta.get("film"), meta.get("lens")]
+    meta_line = " · ".join(d for d in details if d)
+
+    slug = meta.get("slug") or slugify(source.stem)
+
+    return {
+        "slug": slug,
+        "source": source,
+        "caption": meta["caption"],
+        "date": photo_date,
+        "location": meta.get("location", ""),
+        "meta": meta_line,
+        "note": render_markdown(body) if body else "",
+        "thumb_url": f"/static/photos/thumbs/{slug}.webp",
+        "full_url": f"/static/photos/full/{slug}.webp",
+    }
+
+
+def load_photos() -> list[dict]:
+    """All photos, newest first. A photo without a date sorts last, not
+    first -- a missing date shouldn't make it look like the newest one."""
+    if not PHOTOS_DIR.exists():
+        return []
+    photos = [parse_photo(path) for path in sorted(PHOTOS_DIR.glob("*.md"))]
+    photos.sort(key=lambda photo: photo["date"] or date.min, reverse=True)
+    return photos
+
+
+def make_thumbnail(source: Path, dest: Path, size: int = THUMB_SIZE) -> None:
+    img = ImageOps.exif_transpose(Image.open(source)).convert("RGB")
+    w, h = img.size
+    edge = min(w, h)
+    left, top = (w - edge) // 2, (h - edge) // 2
+    img = img.crop((left, top, left + edge, top + edge)).resize((size, size), Image.LANCZOS)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dest, "WEBP", quality=82)
+
+
+def make_full(source: Path, dest: Path, max_edge: int = FULL_MAX) -> None:
+    img = ImageOps.exif_transpose(Image.open(source)).convert("RGB")
+    w, h = img.size
+    if max(w, h) > max_edge:
+        scale = max_edge / max(w, h)
+        img = img.resize((round(w * scale), round(h * scale)), Image.LANCZOS)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dest, "WEBP", quality=88)
+
 
 def group_by_tag(posts: list[dict]) -> list[dict]:
     """Collect posts under each tag. The display name stays as written; the URL
@@ -218,6 +293,7 @@ def build() -> None:
     # in place instead of an empty directory.
     posts = load_posts()
     pages = load_pages()
+    photos = load_photos()
     tags = group_by_tag(posts)
 
     if OUTPUT_DIR.exists():
@@ -244,6 +320,8 @@ def build() -> None:
             back_link={"url": "/tags/", "title": "Všechny štítky"},
         )
 
+    render("photos.html", OUTPUT_DIR / "photos" / "index.html", photos=photos)
+
     for page in pages:
         render("page.html", OUTPUT_DIR / page["slug"] / "index.html", page=page)
 
@@ -252,6 +330,10 @@ def build() -> None:
 
     if STATIC_DIR.exists():
         shutil.copytree(STATIC_DIR, OUTPUT_DIR / "static")
+
+    for photo in photos:
+        make_thumbnail(photo["source"], OUTPUT_DIR / "static" / "photos" / "thumbs" / f"{photo['slug']}.webp")
+        make_full(photo["source"], OUTPUT_DIR / "static" / "photos" / "full" / f"{photo['slug']}.webp")
 
     # Derived from SITE["url"], so the domain is configured in one place
     # instead of also being hardcoded in the deploy workflow.

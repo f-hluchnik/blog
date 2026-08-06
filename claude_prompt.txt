@@ -1,0 +1,7 @@
+Yes please, do all three:
+
+* I'm going with committing the pre-converted webp originals. Add a standalone script that will perform the standard conversion for my blog. Add usage steps to README.md. I'm aware that I will be committing the originals, but don't forget they are already pre-converted, so they are small. I think we should actually serve them - the build script should only prepare the thumbnails. And it should maybe do it only for the newly added photos?
+* Only source should be mandatory. All other fields should be optional. Document usage in README.md
+* Photos and images should live under `static/images` in their respective folders.
+
+Is this a good design a senior software engineer will choose?

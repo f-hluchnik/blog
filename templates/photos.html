@@ -1,0 +1,35 @@
+{# A grid of photos with a lightbox. Its own template -- the grid is a
+   different shape from post-list.html's list, so it isn't reused. #}
+{% extends "base.html" %}
+
+{% block title %}Fotky — {{ site.title }}{% endblock %}
+
+{% block content %}
+<h1 class="archive-title">Fotky</h1>
+
+<div class="photo-grid">
+  {% for photo in photos %}
+  <figure class="photo-card">
+    <button class="photo-thumb" type="button"
+            data-full="{{ photo.full_url }}"
+            data-caption="{{ photo.caption }}"
+            aria-label="Zvětšit fotku: {{ photo.caption }}">
+      <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy">
+    </button>
+    <figcaption>
+      <p class="photo-caption">{{ photo.caption }}</p>
+      {% if photo.meta %}<p class="photo-meta">{{ photo.meta }}</p>{% endif %}
+    </figcaption>
+  </figure>
+  {% else %}
+  <p>Zatím tu nejsou žádné fotky.</p>
+  {% endfor %}
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Zavřít">&times;</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="">
+</div>
+
+<script src="/static/photos.js"></script>
+{% endblock %}
