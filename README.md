@@ -12,12 +12,16 @@ read the other.
 ## Layout
 
 ```
-content/posts/*.md   one file per post   (dated, tagged)
-content/pages/*.md   one file per page   (About, Projects, ...)
-templates/*.html     one file per shape  (see below)
-static/              CSS, JS, icons, images — copied to dist/static/ as-is
-build.py             reads all of the above, writes dist/
-dist/                the entire website; gitignored, rebuilt every run
+content/posts/*.md        one file per post          (dated, tagged)
+content/pages/*.md        one file per page          (About, Projects, ...)
+content/photos/*.md       one metadata file per photo
+templates/*.html          one file per shape         (see below)
+static/images/photos/     pre-converted WebP originals, committed to git
+static/images/posts/      inline images for blog posts
+static/                   CSS, JS, icons — copied to dist/static/ as-is
+convert.py                one-time image conversion before committing
+build.py                  reads all of the above, writes dist/
+dist/                     the entire website; gitignored, rebuilt every run
 ```
 
 ## The mental model
@@ -76,14 +80,70 @@ The nav is four hardcoded links in `templates/base.html` — add yours there too
 (Deriving the nav from front matter was tried and removed: sixteen lines of
 machinery to save one line of editing.)
 
-## Adding pictures
+## Adding pictures to posts
 
-Drop files under `static/images/`, then reference them with a path starting
-at `/static/`:
+Drop files under `static/images/posts/`, then reference them with a path
+starting at `/static/`:
 
 ```markdown
 ![A fresh loaf cooling on a rack](/static/images/posts/sourdough-loaf.jpg)
 ```
+
+## Adding photos to the gallery
+
+The gallery at `/photos/` works differently from inline post images. The
+workflow is:
+
+**1. Convert and commit the source image**
+
+Run `convert.py` on your original JPEG before committing it. This resizes and
+converts to WebP in-place — the output is what gets committed to git, not
+the original.
+
+```bash
+python convert.py static/images/photos/praded-01.jpg
+# → writes static/images/photos/praded-01.webp  (2400px, ~200-400 KB)
+# → leaves praded-01.jpg untouched (and git-ignored)
+git add static/images/photos/praded-01.webp
+```
+
+`convert.py` is idempotent: re-running it on a file whose WebP is already
+up to date does nothing. Use `--force` to overwrite anyway.
+
+**2. Create the metadata file**
+
+Create `content/photos/praded-01.md`. Only `source` is required:
+
+```markdown
+---
+source: praded-01.webp
+caption: "4:30 · Praděd"
+date: 2026-08-01
+film: Fujifilm 400
+lens: 50mm
+location: Praděd
+---
+```
+
+All fields except `source`:
+- `caption` — shown below the thumbnail and in the lightbox label
+- `date` — used for sort order; photos without a date sort last
+- `film` — e.g. "Fujifilm 400"
+- `lens` — e.g. "50mm"
+- `location` — e.g. "Praděd"
+
+`film`, `lens`, and `location` are joined into a quiet secondary line below
+the caption (e.g. "Fujifilm 400 · 50mm · Praděd"). Omit any you don't want.
+
+**3. Build**
+
+`build.py` generates a square 600px thumbnail from the WebP original and
+copies it to `static/images/photos/thumbs/`. Thumbnails are skipped if
+already up to date (mtime comparison, same logic as Make), so incremental
+builds stay fast even with many photos.
+
+The original WebP is served directly as the lightbox full image — no second
+resize step.
 
 ## Previewing locally
 

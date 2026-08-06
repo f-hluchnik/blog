@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+
+# Commit only the pre-converted WebP files in static/images/photos/.
+# Original JPEGs/PNGs stay on your machine; run convert.py before committing.
+static/images/photos/*.jpg
+static/images/photos/*.jpeg
+static/images/photos/*.png
+static/images/photos/*.tiff
