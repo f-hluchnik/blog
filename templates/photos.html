@@ -1,5 +1,5 @@
-{# A grid of photos with a lightbox. Its own template -- the grid is a
-   different shape from post-list.html's list, so it isn't reused. #}
+{# Photo grid with lightbox. Originals in static/images/photos/ are served
+   directly; only the square thumbnails are build-time derivatives. #}
 {% extends "base.html" %}
 
 {% block title %}Fotky — {{ site.title }}{% endblock %}
@@ -7,26 +7,28 @@
 {% block content %}
 <h1 class="archive-title">Fotky</h1>
 
+{% if photos %}
 <div class="photo-grid">
   {% for photo in photos %}
   <figure class="photo-card">
     <button class="photo-thumb" type="button"
             data-full="{{ photo.full_url }}"
             data-caption="{{ photo.caption }}"
-            aria-label="Zvětšit fotku: {{ photo.caption }}">
+            aria-label="Zvětšit fotku{% if photo.caption %}: {{ photo.caption }}{% endif %}">
       <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy">
     </button>
     <figcaption>
-      <p class="photo-caption">{{ photo.caption }}</p>
+      {% if photo.caption %}<p class="photo-caption">{{ photo.caption }}</p>{% endif %}
       {% if photo.meta %}<p class="photo-meta">{{ photo.meta }}</p>{% endif %}
     </figcaption>
   </figure>
-  {% else %}
-  <p>Zatím tu nejsou žádné fotky.</p>
   {% endfor %}
 </div>
+{% else %}
+<p>Zatím tu nejsou žádné fotky.</p>
+{% endif %}
 
-<div class="lightbox" id="lightbox" hidden>
+<div class="lightbox" id="lightbox" style="display: none;">
   <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Zavřít">&times;</button>
   <img class="lightbox-img" id="lightbox-img" src="" alt="">
 </div>

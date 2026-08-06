@@ -1,5 +1,6 @@
 (function () {
   "use strict";
+
   var lightbox = document.getElementById("lightbox");
   var img = document.getElementById("lightbox-img");
   var closeBtn = document.getElementById("lightbox-close");
@@ -8,12 +9,12 @@
   function open(src, caption) {
     img.src = src;
     img.alt = caption || "";
-    lightbox.hidden = false;
+    lightbox.style.display = "flex";
     document.body.style.overflow = "hidden";
   }
 
   function close() {
-    lightbox.hidden = true;
+    lightbox.style.display = "none";
     img.src = "";
     document.body.style.overflow = "";
   }
@@ -29,6 +30,6 @@
     if (e.target === lightbox) close();
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !lightbox.hidden) close();
+    if (e.key === "Escape" && lightbox.style.display !== "none") close();
   });
 })();

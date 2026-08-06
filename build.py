@@ -33,12 +33,12 @@ from datetime import date, datetime
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from PIL import Image, ImageOps
 from urllib.parse import urlparse
 
 import markdown
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
+from PIL import Image, ImageOps
 
 # --------------------------------------------------------------------------
 # Configuration
@@ -50,16 +50,15 @@ PAGES_DIR = ROOT / "content" / "pages"
 TEMPLATES_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 OUTPUT_DIR = ROOT / "dist"
-PHOTOS_DIR = ROOT / "content" / "photos"
-PHOTOS_SOURCE_DIR = PHOTOS_DIR / "source"
-
-# Photo derivatives: thumbnails are square (a real, permanent crop of the
-# derivative -- the source file itself is never touched); full images keep
-# their original aspect ratio and are only capped, never cropped.
-THUMB_SIZE = 800   # px, square
-FULL_MAX = 2000    # px, longest edge
 
 SERVE_ADDRESS = ("localhost", 8000)
+
+# Photos live in static/images/photos/ as pre-converted WebP files committed
+# to git. The build only generates square thumbnails, and only when the
+# thumbnail is missing or older than the source (same logic as Make).
+PHOTOS_DIR = ROOT / "content" / "photos"
+PHOTOS_SRC = ROOT / "static" / "images" / "photos"
+THUMB_SIZE = 600   # px, square; originals are served directly as full images
 
 # `extra` is a bundle: md_in_html, tables, fenced_code, attr_list, def_list,
 # abbr and footnotes. `footnotes` is named again so MARKDOWN_CONFIG can reach
@@ -191,71 +190,67 @@ def load_posts() -> list[dict]:
 def load_pages() -> list[dict]:
     return [parse_page(path) for path in sorted(PAGES_DIR.glob("*.md"))]
 
-def parse_photo(path: Path) -> dict:
-    """One file in content/photos/ -> a photo dict. `source` must name a file
-    in content/photos/source/; only its generated derivatives are ever
-    written into dist/, so the original is never served directly."""
-    meta, body = split_front_matter(path.read_text(encoding="utf-8"))
-    missing = [key for key in ("source", "caption") if key not in meta]
-    if missing:
-        raise ValueError(f"{path}: front matter is missing {', '.join(missing)}")
 
-    source = PHOTOS_SOURCE_DIR / meta["source"]
+def parse_photo(path: Path) -> dict:
+    """One .md file in content/photos/ -> a photo dict.
+
+    Only `source` is required — it names a WebP in static/images/photos/.
+    All other fields (caption, date, film, lens, location) are optional.
+    The build generates a square thumbnail; the original is served as-is.
+    """
+    meta, _ = split_front_matter(path.read_text(encoding="utf-8"))
+    if "source" not in meta:
+        raise ValueError(f"{path}: front matter is missing 'source'")
+
+    source = PHOTOS_SRC / meta["source"]
     if not source.exists():
-        raise ValueError(f"{path}: source image '{meta['source']}' not found in {PHOTOS_SOURCE_DIR}")
+        raise ValueError(f"{path}: '{meta['source']}' not found in {PHOTOS_SRC}")
 
     photo_date = meta.get("date")
     if isinstance(photo_date, str):
         photo_date = datetime.strptime(photo_date, "%Y-%m-%d").date()
 
-    # Optional technical details, joined into one quiet secondary line, e.g.
-    # "Nikon F60 · Fujifilm 400 · 50mm". Any of these may be omitted.
-    details = [meta.get("camera"), meta.get("film"), meta.get("lens")]
-    meta_line = " · ".join(d for d in details if d)
+    # Build the quiet secondary line from whatever optional fields are present.
+    # Omit any that are missing -- no placeholder dashes.
+    detail_fields = ["film", "lens", "location"]
+    meta_line = " · ".join(str(meta[f]) for f in detail_fields if meta.get(f))
 
     slug = meta.get("slug") or slugify(source.stem)
+    thumb_name = f"{slug}-thumb.webp"
 
     return {
         "slug": slug,
         "source": source,
-        "caption": meta["caption"],
+        "caption": meta.get("caption", ""),
         "date": photo_date,
-        "location": meta.get("location", ""),
         "meta": meta_line,
-        "note": render_markdown(body) if body else "",
-        "thumb_url": f"/static/photos/thumbs/{slug}.webp",
-        "full_url": f"/static/photos/full/{slug}.webp",
+        "full_url": f"/static/images/photos/{source.name}",
+        "thumb_url": f"/static/images/photos/thumbs/{thumb_name}",
+        "thumb_dest": ROOT / "static" / "images" / "photos" / "thumbs" / thumb_name,
     }
 
 
 def load_photos() -> list[dict]:
-    """All photos, newest first. A photo without a date sorts last, not
-    first -- a missing date shouldn't make it look like the newest one."""
+    """All photos, newest first. Photos without a date sort last."""
     if not PHOTOS_DIR.exists():
         return []
-    photos = [parse_photo(path) for path in sorted(PHOTOS_DIR.glob("*.md"))]
-    photos.sort(key=lambda photo: photo["date"] or date.min, reverse=True)
+    photos = [parse_photo(p) for p in sorted(PHOTOS_DIR.glob("*.md"))]
+    photos.sort(key=lambda p: p["date"] or date.min, reverse=True)
     return photos
 
 
 def make_thumbnail(source: Path, dest: Path, size: int = THUMB_SIZE) -> None:
+    """Square center-crop thumbnail. Skipped when dest is newer than source."""
+    if dest.exists() and dest.stat().st_mtime >= source.stat().st_mtime:
+        return
     img = ImageOps.exif_transpose(Image.open(source)).convert("RGB")
     w, h = img.size
     edge = min(w, h)
     left, top = (w - edge) // 2, (h - edge) // 2
-    img = img.crop((left, top, left + edge, top + edge)).resize((size, size), Image.LANCZOS)
+    img = img.crop((left, top, left + edge, top + edge))
+    img = img.resize((size, size), Image.LANCZOS)
     dest.parent.mkdir(parents=True, exist_ok=True)
     img.save(dest, "WEBP", quality=82)
-
-
-def make_full(source: Path, dest: Path, max_edge: int = FULL_MAX) -> None:
-    img = ImageOps.exif_transpose(Image.open(source)).convert("RGB")
-    w, h = img.size
-    if max(w, h) > max_edge:
-        scale = max_edge / max(w, h)
-        img = img.resize((round(w * scale), round(h * scale)), Image.LANCZOS)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    img.save(dest, "WEBP", quality=88)
 
 
 def group_by_tag(posts: list[dict]) -> list[dict]:
@@ -296,6 +291,11 @@ def build() -> None:
     photos = load_photos()
     tags = group_by_tag(posts)
 
+    # Thumbnails are generated before dist/ is wiped so we can detect
+    # freshness via mtime. They live in static/, which gets copied into dist/.
+    for photo in photos:
+        make_thumbnail(photo["source"], photo["thumb_dest"])
+
     if OUTPUT_DIR.exists():
         shutil.rmtree(OUTPUT_DIR)
     OUTPUT_DIR.mkdir(parents=True)
@@ -331,15 +331,11 @@ def build() -> None:
     if STATIC_DIR.exists():
         shutil.copytree(STATIC_DIR, OUTPUT_DIR / "static")
 
-    for photo in photos:
-        make_thumbnail(photo["source"], OUTPUT_DIR / "static" / "photos" / "thumbs" / f"{photo['slug']}.webp")
-        make_full(photo["source"], OUTPUT_DIR / "static" / "photos" / "full" / f"{photo['slug']}.webp")
-
     # Derived from SITE["url"], so the domain is configured in one place
     # instead of also being hardcoded in the deploy workflow.
     (OUTPUT_DIR / "CNAME").write_text(urlparse(SITE["url"]).netloc + "\n", encoding="utf-8")
 
-    print(f"Built {len(posts)} post(s), {len(tags)} tag(s), {len(pages)} page(s) -> dist/")
+    print(f"Built {len(posts)} post(s), {len(tags)} tag(s), {len(pages)} page(s), {len(photos)} photo(s) -> dist/")
 
 
 def serve() -> None:
