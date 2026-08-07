@@ -19,7 +19,12 @@
     </button>
     <figcaption>
       {% if photo.caption %}<p class="photo-caption">{{ photo.caption }}</p>{% endif %}
-      {% if photo.meta %}<p class="photo-meta">{{ photo.meta }}</p>{% endif %}
+      {% if photo.date_label or photo.meta %}
+      <p class="photo-meta">
+        {%- if photo.date_label %}{{ photo.date_label }}{% if photo.meta %} · {% endif %}{% endif -%}
+        {%- if photo.meta %}{{ photo.meta }}{% endif -%}
+      </p>
+      {% endif %}
     </figcaption>
   </figure>
   {% endfor %}
