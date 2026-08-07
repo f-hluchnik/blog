@@ -210,6 +210,10 @@ def parse_photo(path: Path) -> dict:
     if isinstance(photo_date, str):
         photo_date = datetime.strptime(photo_date, "%Y-%m-%d").date()
 
+    date_label = ""
+    if meta.get("display_date") and photo_date:
+        date_label = f"{photo_date.strftime('%b')} {photo_date.day}, {photo_date.year}"
+
     # Build the quiet secondary line from whatever optional fields are present.
     # Omit any that are missing -- no placeholder dashes.
     detail_fields = ["film", "lens", "location"]
@@ -223,6 +227,7 @@ def parse_photo(path: Path) -> dict:
         "source": source,
         "caption": meta.get("caption", ""),
         "date": photo_date,
+        "date_label": date_label,
         "meta": meta_line,
         "full_url": f"/static/images/photos/{source.name}",
         "thumb_url": f"/static/images/photos/thumbs/{thumb_name}",
