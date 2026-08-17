@@ -1,0 +1,42 @@
+{# Photo grid with lightbox. Originals in static/images/photos/ are served
+   directly; only the square thumbnails are build-time derivatives. #}
+{% extends "base.html" %}
+
+{% block title %}Fotky — {{ site.title }}{% endblock %}
+
+{% block content %}
+<h1 class="archive-title">Fotky</h1>
+
+{% if photos %}
+<div class="photo-grid">
+  {% for photo in photos %}
+  <figure class="photo-card">
+    <button class="photo-thumb" type="button"
+            data-full="{{ photo.full_url }}"
+            data-caption="{{ photo.caption }}"
+            aria-label="Zvětšit fotku{% if photo.caption %}: {{ photo.caption }}{% endif %}">
+      <img src="{{ photo.thumb_url }}" alt="{{ photo.caption }}" loading="lazy">
+    </button>
+    <figcaption>
+      {% if photo.caption %}<p class="photo-caption">{{ photo.caption }}</p>{% endif %}
+      {% if photo.date_label or photo.meta %}
+      <p class="photo-meta">
+        {%- if photo.date_label %}{{ photo.date_label }}{% if photo.meta %} · {% endif %}{% endif -%}
+        {%- if photo.meta %}{{ photo.meta }}{% endif -%}
+      </p>
+      {% endif %}
+    </figcaption>
+  </figure>
+  {% endfor %}
+</div>
+{% else %}
+<p>Zatím tu nejsou žádné fotky.</p>
+{% endif %}
+
+<div class="lightbox" id="lightbox" style="display: none;">
+  <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Zavřít">&times;</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="">
+</div>
+
+<script src="/static/photos.js"></script>
+{% endblock %}
