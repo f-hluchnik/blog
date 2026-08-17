@@ -29,7 +29,7 @@ Krmení kvásku znamená smíchání starého kvásku s moukou a vodou. Já si v
 - Pokud vidím, že je kvásek přejetý (alkoholový zápach, málo bublinek, kašovitá až tekutá konzistence), provedu proces krmení alespoň dvakrát za sebou. To znamená, že kvásek nejprve nakrmím například v poměru 1:2:2, tím se rozjede, a pak proces krmení zopakuji například v poměru 1:5:5.
 
 ## zbytky
-Při každém krmení nám z kvásku zůstane zbytek. Reálně to je většina starého kvásku -- jak zde popisuji, začínám s 55 g a ke krmení odebírám pouze 5 g. Část zbytku použiji na založení rozkvasu a pečení chleba. Nevyužitý starý kvas buďto vyhazuji, nebo ho přidám do sklenice se starým kvasem, kterou uchovávám v lednici. Tyto zbytky se dají použít například jako základ těsta na lívance nebo třeba na výrobu krekrů či granoly. Kvásek v této sklenici nedokrmuji, takže bývá docela kyselý a nemá sílu. Jednou za čas tedy sklenici vyprázdním úplně a začnu znovu. Pokud kvásek vyhazuji, vyhazuji ho vždy do koše a nikdy ho nesplachuji do odpadu. Může se totiž stát, že v odpadu zaschne a časem odpad ucpe.
+Při každém krmení mi z kvásku zůstane zbytek. Reálně to je většina starého kvásku -- jak zde popisuji, začínám s 55 g a ke krmení odebírám pouze 5 g. Část zbytku použiji na založení rozkvasu a pečení chleba. Nevyužitý starý kvas buďto vyhazuji, nebo ho přidám do sklenice se starým kvasem, kterou uchovávám v lednici. Tyto zbytky se dají použít například jako základ těsta na lívance nebo třeba na výrobu krekrů či granoly. Kvásek v této sklenici nedokrmuji, takže bývá docela kyselý a nemá sílu. Jednou za čas tedy sklenici vyprázdním úplně a začnu znovu. Pokud kvásek vyhazuji, vyhazuji ho vždy do koše a nikdy ho nesplachuji do odpadu. Může se totiž stát, že v odpadu zaschne a časem odpad ucpe.
 
 ## jak poznám stav kvásku
 
@@ -43,3 +43,4 @@ Při každém krmení nám z kvásku zůstane zbytek. Reálně to je většina s
 ## poznámky
 - Pro manipulaci s kváskem využívám vždy čisté náčiní. Dávám si pozor, abych si například neolizoval prsty.
 - Náčiní po manipulaci s kváskem vždy umyji pokud možno hned, zaschlý kvásek se umývá opravdu špatně.
+- [Svůj obvyklý recept na chleba](/posts/jak-pecu-chleba/) a [jak přemýšlím u pečení chleba](/posts/jak-premyslim-pri-peceni-chleba/) popisuji v dalších příspěvcích.

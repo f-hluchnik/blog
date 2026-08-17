@@ -1,6 +1,6 @@
 ---
 title: "Jak přemýšlím při pečení chleba"
-date: 2026-07-27
+date: 2026-07-30
 tags: [pečení, chleba]
 summary: Podrobný popis procesu pečení chleba.
 ---
