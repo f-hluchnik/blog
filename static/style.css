@@ -363,6 +363,18 @@ article.post .post-title {
   font-weight: 600;
 }
 
+.post-content dt {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  margin-top: 1.8em;
+}
+
+.post-content dd {
+  margin: 0.2em 0 0.8em;
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* Emitted by the Markdown `footnotes` extension. */
 .footnote {
   font-size: 0.95rem;
