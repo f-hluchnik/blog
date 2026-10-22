@@ -254,6 +254,8 @@ article.post .post-title {
 
 .post-tags a:hover { text-decoration: underline; }
 
+.post-info { color: var(--muted); font-size: 0.9rem; }
+
 .back-link {
   margin-top: 3rem;
   font-size: 0.95rem;

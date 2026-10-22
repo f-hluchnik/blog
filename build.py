@@ -158,6 +158,7 @@ def parse_post(path: Path) -> dict:
         "date": post_date,
         "tags": meta.get("tags") or [],
         "summary": meta.get("summary", ""),
+        "info": meta.get("info") or [],
         "slug": slug,
         "url": f"/posts/{slug}/",
         "content": render_markdown(body),

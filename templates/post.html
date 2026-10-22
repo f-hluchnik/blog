@@ -11,6 +11,9 @@
   {% if post.tags %}
   {% include "_tags.html" %}
   {% endif %}
+  {% if post.info %}
+    <p class="post-info">{{ post.info | join(" · ") }}</p>
+  {% endif %}
   <div class="post-content">
     {{ post.content | safe }}
   </div>
