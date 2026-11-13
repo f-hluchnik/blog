@@ -28,3 +28,6 @@ Když jsem vyrážel na pěší výlet do údolí Jihlavy a Oslavy, chtěl jsem 
 : Karel May
 
 Po dočtení prvního dílu jsem se přirozeně pustil i do dílu druhého. V této knize se spolu s hlavními postavami z předešlé knihy vydáváme po stopách Old Surehandovy minulosti. Závěr knihy mi připadal trochu uspěchaný a místy jsem se pozastavoval nad tím, jak nekriticky jsem knihu v minulosti četl. Na druhou stranu, jsou zrovna mayovky knihy, které by se měly číst kritickýma očima? Pro mě spíš ne -- raději je budu dál hltat jako dítě.
+
+**Nějaká Cécile**
+: Petr Borkovec
