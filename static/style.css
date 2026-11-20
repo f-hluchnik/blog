@@ -113,7 +113,8 @@ button:focus-visible {
   border-bottom: 1px solid transparent;
 }
 
-.site-nav a:hover { border-bottom-color: var(--accent); }
+.site-nav a:hover,
+.site-nav a[aria-current="page"] { border-bottom-color: var(--accent); }
 
 /* Theme toggle. Markup is templates/_theme-toggle.html, shared verbatim with
    the songbook; only the placement differs. Hidden unless theme.js ran,
@@ -211,19 +212,24 @@ button:focus-visible {
 
 .post-item .post-title:hover { color: var(--accent); }
 
+/* Same notebook look as the post list: the rule sits where the year column
+   ends there, and each row is a count and a tag name. */
 .tag-list {
   list-style: none;
-  margin: 0;
-  padding: 0;
+  margin: 0 0 0 4rem;
+  padding: 0 0 0 1.25rem;
+  border-left: 1px solid var(--line);
 }
 
 .tag-list li {
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--line);
-  font-size: 1.05rem;
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  line-height: 1.4;
 }
 
 .tag-list a {
+  font-size: 1.05rem;
   color: var(--ink);
   text-decoration: none;
 }
@@ -231,9 +237,12 @@ button:focus-visible {
 .tag-list a:hover { color: var(--accent); }
 
 .tag-count {
+  flex: 0 0 auto;
+  min-width: 1.5rem;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.85em;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
 }
 
 /* 6. Single item (post, page) ------------------------------------------- */

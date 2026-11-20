@@ -298,9 +298,19 @@ def group_by_tag(posts: list[dict]) -> list[dict]:
 
 def render(template_name: str, out_path: Path, **context) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # The URL of the page being written, so the nav can mark where you are.
+    # Empty for 404.html, which has no URL of its own.
+    if out_path.name == "index.html":
+        parts = out_path.parent.relative_to(OUTPUT_DIR).parts
+        current_path = "/" + "".join(f"{part}/" for part in parts)
+    else:
+        current_path = ""
     out_path.write_text(
         env.get_template(template_name).render(
-            site=SITE, current_year=date.today().year, **context
+            site=SITE,
+            current_year=date.today().year,
+            current_path=current_path,
+            **context,
         ),
         encoding="utf-8",
     )
