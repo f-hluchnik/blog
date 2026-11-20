@@ -116,7 +116,7 @@ def format_date(value: date) -> str:
 
 def format_day(value: date) -> str:
     """Month and day only; the year is shown once per group in the post list."""
-    return value.strftime("%m. %d")
+    return value.strftime("%m. %d.")
 
 
 def by_year(posts: list[dict]) -> list[tuple[int, list[dict]]]:
