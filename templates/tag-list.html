@@ -9,8 +9,8 @@
 <ul class="tag-list">
   {% for tag in tags %}
   <li>
-    <span class="tag-count">{{ tag.posts | length }}</span>
     <a href="{{ tag.url }}">{{ tag.name }}</a>
+    <span class="tag-count">({{ tag.posts | length }})</span>
   </li>
   {% else %}
   <li>Zatím žádné štítky.</li>

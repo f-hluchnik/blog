@@ -177,6 +177,8 @@ button:focus-visible {
   line-height: calc(1.05rem * 1.4); /* same row height as a post, so baselines meet */
   color: var(--muted);
   letter-spacing: 0.02em;
+  text-align: right;
+  padding-right: 1.25rem; /* same gap to the rule as the date has on its side */
 }
 
 .post-list {
@@ -213,7 +215,7 @@ button:focus-visible {
 .post-item .post-title:hover { color: var(--accent); }
 
 /* Same notebook look as the post list: the rule sits where the year column
-   ends there, and each row is a count and a tag name. */
+   ends there, and each row is a tag name followed by its post count. */
 .tag-list {
   list-style: none;
   margin: 0 0 0 4rem;
@@ -221,12 +223,7 @@ button:focus-visible {
   border-left: 1px solid var(--line);
 }
 
-.tag-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  line-height: 1.4;
-}
+.tag-list li { line-height: 1.4; }
 
 .tag-list a {
   font-size: 1.05rem;
@@ -237,12 +234,9 @@ button:focus-visible {
 .tag-list a:hover { color: var(--accent); }
 
 .tag-count {
-  flex: 0 0 auto;
-  min-width: 1.5rem;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+  font-size: 0.85em;
 }
 
 /* 6. Single item (post, page) ------------------------------------------- */
