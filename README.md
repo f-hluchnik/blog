@@ -53,7 +53,7 @@ the front matter is what counts.
 title: Some Title
 date: 2026-07-21
 tags: [knihy, život]
-summary: One sentence shown in the post list.
+summary: One sentence describing the post.
 ---
 
 Your post in Markdown. **Bold**, *italic*, [links](https://example.com),
