@@ -4,12 +4,13 @@
 {% block title %}Štítky — {{ site.title }}{% endblock %}
 
 {% block content %}
-<h1 class="archive-title">Štítky</h1>
+{# The tab is highlighted in the nav; the h1 stays for the document outline. #}
+<h1 class="archive-title visually-hidden">Štítky</h1>
 <ul class="tag-list">
   {% for tag in tags %}
   <li>
+    <span class="tag-count">{{ tag.posts | length }}</span>
     <a href="{{ tag.url }}">{{ tag.name }}</a>
-    <span class="tag-count">({{ tag.posts | length }})</span>
   </li>
   {% else %}
   <li>Zatím žádné štítky.</li>

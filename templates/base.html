@@ -30,11 +30,13 @@
         <a class="site-title" href="/">{{ site.title }}</a>
         <p class="site-tagline">{{ site.description }}</p>
         <nav class="site-nav">
-          <a href="/">Příspěvky</a>
-          <a href="/tags/">Štítky</a>
-          <a href="/about/">O blogu</a>
-          <a href="/projects/">Projekty</a>
-          <a href="/photos/">Fotky</a>
+          {# A post belongs under Příspěvky, a tag archive under Štítky. #}
+          {% set here = current_path %}
+          <a href="/"{% if here == "/" or here.startswith("/posts/") %} aria-current="page"{% endif %}>Příspěvky</a>
+          <a href="/tags/"{% if here.startswith("/tags/") %} aria-current="page"{% endif %}>Štítky</a>
+          <a href="/about/"{% if here == "/about/" %} aria-current="page"{% endif %}>O blogu</a>
+          <a href="/projects/"{% if here == "/projects/" %} aria-current="page"{% endif %}>Projekty</a>
+          <a href="/photos/"{% if here == "/photos/" %} aria-current="page"{% endif %}>Fotky</a>
         </nav>
       </div>
       {% include "_theme-toggle.html" %}
