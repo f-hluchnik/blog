@@ -114,10 +114,27 @@ def format_date(value: date) -> str:
     return value.strftime(DATE_FORMAT)
 
 
+def format_day(value: date) -> str:
+    """Month and day only; the year is shown once per group in the post list."""
+    return value.strftime("%m.%d")
+
+
+def by_year(posts: list[dict]) -> list[tuple[int, list[dict]]]:
+    """Group posts (already newest first) into [(year, posts), ...], keeping order."""
+    groups: list[tuple[int, list[dict]]] = []
+    for post in posts:
+        if not groups or groups[-1][0] != post["date"].year:
+            groups.append((post["date"].year, []))
+        groups[-1][1].append(post)
+    return groups
+
+
 # Posts link to their own tags, where only the display name is in scope, so
 # templates need the same slug rule the tag URLs were built from.
 env.filters["slugify"] = slugify
 env.filters["format_date"] = format_date
+env.filters["format_day"] = format_day
+env.filters["by_year"] = by_year
 
 
 def split_front_matter(raw: str) -> tuple[dict, str]:
