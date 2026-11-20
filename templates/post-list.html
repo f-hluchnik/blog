@@ -1,5 +1,6 @@
-{# An index of posts. Used twice: the home page (heading and back_link are
-   None) and each tag archive. build.py always passes both. #}
+{# An index of posts, one line each: date and title. Used twice: the home page
+   (heading and back_link are None) and each tag archive. build.py always passes
+   both. Summaries and tags live on the post itself and on /tags/. #}
 {% extends "base.html" %}
 
 {% block title %}{% if heading %}{{ heading }} — {{ site.title }}{% else %}{{ site.title }}{% endif %}{% endblock %}
@@ -13,14 +14,8 @@
 <ul class="post-list">
   {% for post in posts %}
   <li class="post-item">
-    <span class="post-date"><time datetime="{{ post.date.isoformat() }}">{{ post.date | format_date }}</time></span>
+    <time class="post-date" datetime="{{ post.date.isoformat() }}">{{ post.date | format_date }}</time>
     <a class="post-title" href="{{ post.url }}">{{ post.title }}</a>
-    {% if post.summary %}
-    <p class="post-summary">{{ post.summary }}</p>
-    {% endif %}
-    {% if post.tags %}
-    {% include "_tags.html" %}
-    {% endif %}
   </li>
   {% else %}
   <li class="post-item">Zatím tu nic není.</li>

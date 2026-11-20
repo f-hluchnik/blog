@@ -166,27 +166,27 @@ button:focus-visible {
   padding: 0;
 }
 
+/* One line per post: date, then title. */
 .post-item {
-  padding: 1.25rem 0;
-  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  padding: 0.45rem 0;
 }
 
-.post-item:last-child { border-bottom: 1px solid var(--line); }
+.post-item .post-date {
+  flex: 0 0 auto;
+  margin: 0;
+}
 
 .post-item .post-title {
   font-family: var(--serif);
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   color: var(--ink);
   text-decoration: none;
 }
 
 .post-item .post-title:hover { color: var(--accent); }
-
-.post-summary {
-  margin: 0.4rem 0 0;
-  color: var(--muted);
-  font-size: 1rem;
-}
 
 .tag-list {
   list-style: none;
