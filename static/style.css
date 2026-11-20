@@ -161,19 +161,19 @@ button:focus-visible {
 }
 
 /* Posts grouped by year: the year sits left of a vertical rule, the posts
-   of that year to its right. */
+   of that year to its right. The rule belongs to each list and the gap
+   between years is padding inside it, so the line runs unbroken. */
 .post-year {
   display: grid;
   grid-template-columns: 4rem 1fr;
-  margin-bottom: 1.5rem;
 }
 
 .year-label {
   margin: 0;
-  padding-top: 0.2rem;
   font-family: var(--mono);
   font-size: 0.8rem;
   font-weight: 400;
+  line-height: calc(1.05rem * 1.4); /* same row height as a post, so baselines meet */
   color: var(--muted);
   letter-spacing: 0.02em;
 }
@@ -181,21 +181,26 @@ button:focus-visible {
 .post-list {
   list-style: none;
   margin: 0;
-  padding: 0 0 0 1.25rem;
+  padding: 0 0 1.5rem 1.25rem;
   border-left: 1px solid var(--line);
 }
 
-/* One line per post: day, then title. Title is never larger than the menu. */
+.post-year:last-of-type .post-list { padding-bottom: 0; }
+
+/* One row per post, like lines in a notebook: day, then title. Title is never
+   larger than the menu. */
 .post-item {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  padding: 0.2rem 0;
+  padding: 0;
+  line-height: 1.4;
 }
 
 .post-item .post-date {
   flex: 0 0 auto;
   margin: 0;
+  white-space: nowrap;
 }
 
 .post-item .post-title {
