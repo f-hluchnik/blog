@@ -5,7 +5,8 @@
 {% block title %}Fotky — {{ site.title }}{% endblock %}
 
 {% block content %}
-<h1 class="archive-title">Fotky</h1>
+{# The tab is highlighted in the nav; the h1 stays for the document outline. #}
+<h1 class="archive-title visually-hidden">Fotky</h1>
 
 {% if photos %}
 <div class="photo-grid">
